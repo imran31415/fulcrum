@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fulcrum Text Analysis</title>
+    <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@main/bundles/datastar.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-50: #eff6ff;
+            --primary-100: #dbeafe;
+            --primary-200: #bfdbfe;
+            --primary-300: #93c5fd;
+            --primary-400: #60a5fa;
+            --primary-500: #3b82f6;
+            --primary-600: #2563eb;
+            --primary-700: #1d4ed8;
+            --primary-800: #1e40af;
+            --primary-900: #1e3a8a;
+
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+
+            --success-500: #10b981;
+            --warning-500: #f59e0b;
+            --error-500: #ef4444;
+
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+            --border-radius-sm: 0.375rem;
+            --border-radius-md: 0.5rem;
+            --border-radius-lg: 0.75rem;
+            --border-radius-xl: 1rem;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary-900) 0%, var(--primary-800) 50%, var(--primary-700) 100%);
+            min-height: 100vh;
+            color: var(--gray-900);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .background-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.1) 0%, transparent 70%),
+                radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header-title {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.8) 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+        }
+
+        .header-subtitle {
+            font-size: 1.25rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 400;
+            margin-bottom: 1rem;
+        }
+
+        .header-description {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .main-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius-xl);
+            box-shadow: var(--shadow-xl);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .input-section {
+            padding: 2.5rem;
+            background: linear-gradient(135deg, var(--gray-50) 0%, rgba(255, 255, 255, 0.9) 100%);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+            font-size: 1.1rem;
+        }
+
+        .form-textarea {
+            width: 100%;
+            min-height: 180px;
+            padding: 1.25rem;
+            border: 2px solid var(--gray-300);
+            border-radius: var(--border-radius-lg);
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+            transition: all 0.3s ease;
+            background: white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary-500);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .form-textarea::placeholder {
+            color: var(--gray-400);
+            line-height: 1.6;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .analyze-btn {
+            background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: var(--border-radius-lg);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .analyze-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .analyze-btn:hover:not(:disabled)::before {
+            left: 100%;
+        }
+
+        .analyze-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            background: linear-gradient(135deg, var(--primary-700) 0%, var(--primary-800) 100%);
+        }
+
+        .analyze-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .word-count {
+            color: var(--gray-500);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .results-section {
+            padding: 2.5rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+        }
+
+        .results-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .results-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .results-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            margin-bottom: 0.5rem;
+        }
+
+        .results-subtitle {
+            color: var(--gray-600);
+            font-size: 1.1rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 2rem;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--gray-200);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-600) 100%);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .metric-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .metric-title {
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+
+        .metric-description {
+            font-size: 0.95rem;
+            color: var(--gray-600);
+            line-height: 1.4;
+        }
+
+        .detailed-results {
+            margin-top: 3rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .result-accordion {
+            background: white;
+            border-radius: var(--border-radius-lg);
+            margin-bottom: 1rem;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--gray-200);
+        }
+
+        .accordion-header {
+            background: var(--gray-50);
+            padding: 1.5rem 2rem;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .accordion-header:hover {
+            background: var(--gray-100);
+        }
+
+        .accordion-title {
+            font-weight: 600;
+            color: var(--gray-800);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .accordion-icon {
+            transition: transform 0.3s ease;
+            color: var(--gray-500);
+        }
+
+        .accordion-icon.expanded {
+            transform: rotate(180deg);
+        }
+
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .accordion-content.expanded {
+            max-height: 2000px;
+        }
+
+        .accordion-body {
+            padding: 2rem;
+        }
+
+        .json-viewer {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1.5rem;
+            border-radius: var(--border-radius-md);
+            font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, var(--error-500) 0%, #dc2626 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: var(--border-radius-lg);
+            margin: 2rem 0;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .error-icon {
+            font-size: 1.5rem;
+        }
+
+        .toast {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: var(--success-500);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-lg);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-500), var(--primary-600));
+            transition: width 0.3s ease;
+            z-index: 1001;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .input-section {
+                padding: 1.5rem;
+            }
+
+            .results-section {
+                padding: 1.5rem;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .metric-card {
+                padding: 1.5rem;
+            }
+
+            .accordion-header {
+                padding: 1rem 1.5rem;
+            }
+
+            .accordion-body {
+                padding: 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .analyze-btn {
+                justify-content: center;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-up {
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body
+    data-signals='{"textInput": "", "isAnalyzing": false, "analysisResults": null, "error": null, "showComplexity": false, "showTokens": false, "showPreprocessing": false}'
+    data-on-load="console.log('Fulcrum loaded successfully')">
+
+    <div class="background-pattern"></div>
+    <div class="progress-bar" data-style.width="$isAnalyzing ? '100%' : '0%'"></div>
+
+    <div class="container">
+        <header class="header fade-in">
+            <h1 class="header-title">🎯 Fulcrum</h1>
+            <p class="header-subtitle">Advanced Text Analysis Engine</p>
+            <p class="header-description">
+                Unlock deep insights from your text with comprehensive analysis including readability metrics,
+                linguistic patterns, sentiment analysis, and advanced preprocessing.
+            </p>
+        </header>
+
+        <main class="main-card slide-up">
+            <section class="input-section">
+                <div>
+                    <div class="form-group">
+                        <label for="textInput" class="form-label">
+                            📝 Enter your text for comprehensive analysis
+                        </label>
+                        <textarea
+                            id="textInput"
+                            name="text"
+                            class="form-textarea"
+                            placeholder="Paste or type your text here. The more text you provide, the more comprehensive and accurate the analysis will be. Try entering a paragraph or more for the best results..."
+                            data-bind="textInput"
+                            data-on-input="$error = null"
+                            required></textarea>
+                    </div>
+
+                    <div class="button-group">
+                        <button
+                            type="button"
+                            class="analyze-btn"
+                            data-disabled="!$textInput || !$textInput.trim() || $isAnalyzing"
+                            data-style.opacity="(!$textInput || !$textInput.trim() || $isAnalyzing) ? '0.5' : '1'"
+                            data-style.cursor="(!$textInput || !$textInput.trim() || $isAnalyzing) ? 'not-allowed' : 'pointer'"
+                            data-on-click="$isAnalyzing = true; $error = null; fetch('/analyze', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: document.getElementById('textInput').value})}).then(response => response.text()).then(data => { console.log('Response:', data); const lines = data.trim().split('\\n'); console.log('Lines after split:', lines); let eventType = null; let dataLines = []; for (const line of lines) { const trimmedLine = line.trim(); console.log('Processing line:', trimmedLine); if (trimmedLine.startsWith('event: ')) { eventType = trimmedLine.substring(7).trim(); console.log('Found event:', eventType); } else if (trimmedLine.startsWith('data: ')) { const dataContent = trimmedLine.substring(6); dataLines.push(dataContent); console.log('Found data:', dataContent); } } console.log('Final event type:', eventType); console.log('Final data lines:', dataLines); if (eventType === 'datastar-patch-signals' && dataLines.length > 0) { const fullData = dataLines.join(' '); console.log('Full data for parsing:', fullData); const signalsMatch = fullData.match(/^signals\\s+(.+)$/); if (signalsMatch) { try { const signals = JSON.parse(signalsMatch[1]); console.log('Successfully parsed signals:', signals); $analysisResults = signals.analysisResults; $isAnalyzing = signals.isAnalyzing; $error = signals.error; } catch(e) { console.error('Error parsing signals JSON:', e); $isAnalyzing = false; $error = 'Failed to parse analysis results'; } } else { console.log('No signals pattern match in:', fullData); $isAnalyzing = false; $error = 'Invalid response format'; } } else { console.log('Invalid event type or no data - event type:', eventType, 'data lines count:', dataLines.length); if (dataLines.length === 0 && eventType && eventType.includes('signals {')) { console.log('Event type contains signals data, trying direct parse'); const signalsIndex = eventType.indexOf('signals {'); const signalsData = eventType.substring(signalsIndex + 8); console.log('Signals data to parse:', signalsData); try { const signals = JSON.parse('{' + signalsData); console.log('Direct parse successful:', signals); $analysisResults = signals.analysisResults; $isAnalyzing = signals.isAnalyzing; $error = signals.error; } catch(e) { console.error('Direct parse failed:', e); console.log('Trying alternative approach...'); const dataStart = eventType.indexOf('data: signals '); if (dataStart !== -1) { const jsonStart = eventType.indexOf('{', dataStart); if (jsonStart !== -1) { const jsonData = eventType.substring(jsonStart); console.log('Alternative JSON data:', jsonData); try { const signals = eval('(' + jsonData + ')'); console.log('Alternative parse successful:', signals); $isAnalyzing = false; $error = null; const gradeLevel = signals.analysisResults?.complexity_metrics?.flesch_kincaid_grade_level; const readingEase = signals.analysisResults?.complexity_metrics?.flesch_reading_ease; const wordCount = signals.analysisResults?.tokens?.token_counts?.words; const uniqueWords = signals.analysisResults?.tokens?.token_counts?.unique_tokens; document.getElementById('resultsSection').style.display = 'block'; document.getElementById('resultsSection').classList.add('visible'); setTimeout(() => { const debugArea = document.querySelector('.results-section .debug-info'); if (debugArea) debugArea.innerHTML = `<strong>Manual Update:</strong><br>Grade Level: ${gradeLevel?.toFixed(1) || 'N/A'}<br>Reading Ease: ${readingEase?.toFixed(1) || 'N/A'}<br>Word Count: ${wordCount || 'N/A'}<br>Unique Words: ${uniqueWords || 'N/A'}`; }, 100); console.log('Manual display and data:', {gradeLevel, readingEase, wordCount}); } catch(e2) { console.error('Alternative parse failed:', e2); $isAnalyzing = false; $error = 'Failed to parse response'; } } else { $isAnalyzing = false; $error = 'No JSON found'; } } else { $isAnalyzing = false; $error = 'Failed to parse response'; } } } else { $isAnalyzing = false; $error = 'Invalid response format'; } } })">
+                            <span data-show="$isAnalyzing" class="loading-spinner"></span>
+                            <span data-text="$isAnalyzing ? 'Analyzing...' : '✨ Analyze Text'"></span>
+                        </button>
+
+                        <div class="word-count">
+                            <span>📊</span>
+                            <span data-text="$textInput ? $textInput.trim().split(/\s+/).filter(w => w.length > 0).length + ' words' : '0 words'"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="results-section" data-class.visible="$hasResults" id="resultsSection">
+                <div class="results-header">
+                    <h2 class="results-title">Analysis Complete</h2>
+                    <p class="results-subtitle">Here are the comprehensive insights from your text</p>
+                    <div class="debug-info" style="background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 12px; max-height: 200px; overflow: auto;">
+                        <strong>Debug Info - Static Test</strong><br>
+                        This should show if the results section is visible.<br>
+                        <span data-text="'Testing: ' + ($hasResults ? 'TRUE' : 'FALSE')"></span><br>
+                        <span data-text="'Grade: ' + $gradeLevel"></span><br>
+                        <span data-text="'Words: ' + $wordCount"></span><br>
+                    </div>
+                </div>
+
+                <!-- Key Metrics Grid -->
+                <div class="metrics-grid" data-show="$hasResults">
+                    <div class="metric-card" style="background: lightblue;">
+                        <div class="metric-icon">🧪</div>
+                        <div class="metric-title">Test Card</div>
+                        <div class="metric-value" data-text="'Works!'"></div>
+                        <div class="metric-description">This is a test to see if cards display</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">📚</div>
+                        <div class="metric-title">Reading Level</div>
+                        <div class="metric-value" data-text="$gradeLevel ? Number($gradeLevel).toFixed(1) : 'N/A'"></div>
+                        <div class="metric-description">Flesch-Kincaid Grade Level - indicates the education level needed to understand the text</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon">🎯</div>
+                        <div class="metric-title">Reading Ease</div>
+                        <div class="metric-value" data-text="$readingEase ? Number($readingEase).toFixed(1) : 'N/A'"></div>
+                        <div class="metric-description">Flesch Reading Ease Score - higher scores indicate easier readability</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon">🌈</div>
+                        <div class="metric-title">Lexical Diversity</div>
+                        <div class="metric-value" data-text="$analysisResults?.complexity_metrics?.lexical_diversity ? (Number($analysisResults.complexity_metrics.lexical_diversity) * 100).toFixed(1) + '%' : 'N/A'"></div>
+                        <div class="metric-description">Vocabulary variation - measures the richness of word usage</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon">💬</div>
+                        <div class="metric-title">Total Words</div>
+                        <div class="metric-value" data-text="$wordCount || 'N/A'"></div>
+                        <div class="metric-description">Total word count in the analyzed text</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon">✨</div>
+                        <div class="metric-title">Unique Words</div>
+                        <div class="metric-value" data-text="$uniqueWords || 'N/A'"></div>
+                        <div class="metric-description">Number of distinct words used</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-icon">🔤</div>
+                        <div class="metric-title">Avg Syllables</div>
+                        <div class="metric-value" data-text="$analysisResults?.complexity_metrics?.syllable_stats?.average_syllables ? Number($analysisResults.complexity_metrics.syllable_stats.average_syllables).toFixed(2) : 'N/A'"></div>
+                        <div class="metric-description">Average syllables per word</div>
+                    </div>
+                </div>
+
+                <!-- Detailed Results -->
+                <div class="detailed-results">
+                    <h3 class="section-title">📊 Detailed Analysis</h3>
+
+                    <div class="result-accordion">
+                        <div class="accordion-header" data-on-click="$showComplexity = !$showComplexity">
+                            <div class="accordion-title">
+                                <span>📈</span>
+                                <span>Complexity Metrics</span>
+                            </div>
+                            <span class="accordion-icon" data-class.expanded="$showComplexity">▼</span>
+                        </div>
+                        <div class="accordion-content" data-class.expanded="$showComplexity">
+                            <div class="accordion-body">
+                                <div class="json-viewer" data-text="JSON.stringify($analysisResults?.complexity_metrics, null, 2)"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="result-accordion">
+                        <div class="accordion-header" data-on-click="$showTokens = !$showTokens">
+                            <div class="accordion-title">
+                                <span>🔤</span>
+                                <span>Tokenization & Linguistic Analysis</span>
+                            </div>
+                            <span class="accordion-icon" data-class.expanded="$showTokens">▼</span>
+                        </div>
+                        <div class="accordion-content" data-class.expanded="$showTokens">
+                            <div class="accordion-body">
+                                <div class="json-viewer" data-text="JSON.stringify($analysisResults?.tokens, null, 2)"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="result-accordion">
+                        <div class="accordion-header" data-on-click="$showPreprocessing = !$showPreprocessing">
+                            <div class="accordion-title">
+                                <span>🔧</span>
+                                <span>Preprocessing & Quality Analysis</span>
+                            </div>
+                            <span class="accordion-icon" data-class.expanded="$showPreprocessing">▼</span>
+                        </div>
+                        <div class="accordion-content" data-class.expanded="$showPreprocessing">
+                            <div class="accordion-body">
+                                <div class="json-viewer" data-text="JSON.stringify($analysisResults?.preprocessing, null, 2)"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="error-message" data-show="$error">
+                <span class="error-icon">⚠️</span>
+                <div>
+                    <strong>Analysis Error:</strong>
+                    <span data-text="$error"></span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast" id="successToast">
+        <span>✅ Analysis completed successfully!</span>
+    </div>
+
+    <script>
+        // Simple initialization and success handling
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Fulcrum app initialized');
+        });
+
+        // Show success toast when analysis completes
+        document.addEventListener('datastar-merge-signals', (event) => {
+            console.log('DataStar signals merged:', event.detail);
+
+            if (event.detail?.analysisResults) {
+                const toast = document.getElementById('successToast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+
+                // Smooth scroll to results
+                setTimeout(() => {
+                    document.getElementById('resultsSection').scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }, 300);
+
+                console.log('Analysis completed successfully');
+            }
+
+            if (event.detail?.error) {
+                console.log('Error in response:', event.detail.error);
+            }
+
+            if (event.detail?.isAnalyzing !== undefined) {
+                console.log('isAnalyzing updated to:', event.detail.isAnalyzing);
+            }
+        });
+    </script>
+</body>
+</html>

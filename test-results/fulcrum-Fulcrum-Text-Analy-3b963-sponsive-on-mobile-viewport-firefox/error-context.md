@@ -1,0 +1,49 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - heading "🎯 Fulcrum" [level=1] [ref=e4]
+      - paragraph [ref=e5]: Advanced Text Analysis Engine
+      - paragraph [ref=e6]: Unlock deep insights from your text with comprehensive analysis including readability metrics, linguistic patterns, sentiment analysis, and advanced preprocessing.
+    - main [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e10]: 📝 Enter your text for comprehensive analysis
+          - textbox "📝 Enter your text for comprehensive analysis" [ref=e11]: Mobile test text for analysis.
+        - generic [ref=e12]:
+          - button "Analyzing..." [active] [ref=e13] [cursor=pointer]:
+            - generic [ref=e15] [cursor=pointer]: Analyzing...
+          - generic [ref=e16]:
+            - generic [ref=e17]: 📊
+            - generic [ref=e18]: 0 words
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - heading "Analysis Complete" [level=2] [ref=e21]
+          - paragraph [ref=e22]: Here are the comprehensive insights from your text
+        - generic [ref=e23]:
+          - heading "📊 Detailed Analysis" [level=3] [ref=e24]
+          - generic [ref=e25]:
+            - generic [ref=e26] [cursor=pointer]:
+              - generic [ref=e27] [cursor=pointer]:
+                - generic [ref=e28] [cursor=pointer]: 📈
+                - generic [ref=e29] [cursor=pointer]: Complexity Metrics
+              - generic [ref=e30] [cursor=pointer]: ▼
+            - generic [ref=e32]: undefined
+          - generic [ref=e33]:
+            - generic [ref=e34] [cursor=pointer]:
+              - generic [ref=e35] [cursor=pointer]:
+                - generic [ref=e36] [cursor=pointer]: 🔤
+                - generic [ref=e37] [cursor=pointer]: Tokenization & Linguistic Analysis
+              - generic [ref=e38] [cursor=pointer]: ▼
+            - generic [ref=e40]: undefined
+          - generic [ref=e41]:
+            - generic [ref=e42] [cursor=pointer]:
+              - generic [ref=e43] [cursor=pointer]:
+                - generic [ref=e44] [cursor=pointer]: 🔧
+                - generic [ref=e45] [cursor=pointer]: Preprocessing & Quality Analysis
+              - generic [ref=e46] [cursor=pointer]: ▼
+            - generic [ref=e48]: undefined
+  - generic [ref=e50]: ✅ Analysis completed successfully!
+```
