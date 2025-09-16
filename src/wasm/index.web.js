@@ -5,6 +5,8 @@ import './wasm_exec.js';
 import { wasmBase64 } from './wasmData';
 
 let initPromise = null;
+let goInstance = null;
+let isRunning = false;
 
 function base64ToUint8Array(base64) {
   const binary = globalThis.atob(base64);
@@ -29,29 +31,88 @@ function waitForReady(timeoutMs = 10000) {
 
 export async function initWasm() {
   if (initPromise) return initPromise;
+  
   initPromise = (async () => {
-    if (typeof globalThis.Go !== 'function') {
-      throw new Error('Go WASM runtime (wasm_exec.js) not loaded. Build step may be missing.');
-    }
-    const go = new globalThis.Go();
-    const bytes = base64ToUint8Array(wasmBase64);
-    const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
-    // Start the Go runtime; it will not resolve until program exit.
-    // We wait for a readiness signal from the module instead.
-    go.run(instance);
-    await waitForReady();
-    if (typeof globalThis.processText !== 'function') {
-      throw new Error('processText not exported by WASM module');
+    try {
+      // Clean up any previous instance
+      if (goInstance && isRunning) {
+        console.log('Cleaning up previous WASM instance...');
+        if (typeof globalThis.cleanupWasm === 'function') {
+          globalThis.cleanupWasm();
+        }
+        goInstance = null;
+        isRunning = false;
+        // Wait a bit for cleanup
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      if (typeof globalThis.Go !== 'function') {
+        throw new Error('Go WASM runtime (wasm_exec.js) not loaded. Build step may be missing.');
+      }
+      
+      goInstance = new globalThis.Go();
+      const bytes = base64ToUint8Array(wasmBase64);
+      const { instance } = await WebAssembly.instantiate(bytes, goInstance.importObject);
+      
+      // Start the Go runtime in a way that handles errors
+      const runPromise = goInstance.run(instance);
+      isRunning = true;
+      
+      // Handle if the Go program exits unexpectedly
+      runPromise.then(
+        () => {
+          console.warn('Go WASM program exited');
+          isRunning = false;
+        },
+        (error) => {
+          console.error('Go WASM program crashed:', error);
+          isRunning = false;
+        }
+      );
+      
+      await waitForReady();
+      
+      if (typeof globalThis.processText !== 'function') {
+        throw new Error('processText not exported by WASM module');
+      }
+    } catch (error) {
+      initPromise = null; // Allow retry on error
+      goInstance = null;
+      isRunning = false;
+      throw error;
     }
   })();
+  
   return initPromise;
 }
 
 export async function processText(operation, text) {
-  await initWasm();
+  // Check if WASM is still running
+  if (!isRunning) {
+    console.log('WASM not running, reinitializing...');
+    initPromise = null;
+    await initWasm();
+  }
+  
   const fn = globalThis.processText;
   if (typeof fn !== 'function') {
     throw new Error('processText not available');
   }
-  return fn(operation, text);
+  
+  try {
+    return fn(operation, text);
+  } catch (error) {
+    console.error('Error calling processText:', error);
+    // If the error indicates the Go program has exited, reset and retry once
+    if (error.message && error.message.includes('Go program has already exited')) {
+      console.log('Go program exited, attempting to reinitialize...');
+      initPromise = null;
+      isRunning = false;
+      goInstance = null;
+      await initWasm();
+      // Try once more
+      return globalThis.processText(operation, text);
+    }
+    throw error;
+  }
 }

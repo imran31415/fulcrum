@@ -90,17 +90,37 @@ func extractTasks(text string, sentences []string, clusters []IdeaCluster) []Tas
 	var tasks []Task
 	taskID := 1
 	
+	// Limit number of sentences to process to prevent memory issues
+	maxSentences := 100
+	if len(sentences) > maxSentences {
+		sentences = sentences[:maxSentences]
+	}
+	
 	// Track character position
 	charPos := 0
+	textLen := len(text)
 	
 	for sentNum, sentence := range sentences {
-		sentStart := strings.Index(text[charPos:], sentence)
-		if sentStart == -1 {
-			sentStart = charPos
-		} else {
-			sentStart += charPos
+		// Ensure we don't go out of bounds
+		if charPos >= textLen {
+			break
 		}
+		
+		// Search for sentence with bounds checking
+		sentStart := charPos
+		if charPos < textLen {
+			remainText := text[charPos:]
+			idx := strings.Index(remainText, sentence)
+			if idx != -1 {
+				sentStart = charPos + idx
+			}
+		}
+		
+		// Ensure sentEnd doesn't exceed text length
 		sentEnd := sentStart + len(sentence)
+		if sentEnd > textLen {
+			sentEnd = textLen
+		}
 		
 		// Check if this sentence contains a task
 		if task := extractTaskFromSentence(sentence, sentNum, sentStart, sentEnd); task != nil {
@@ -111,6 +131,11 @@ func extractTasks(text string, sentences []string, clusters []IdeaCluster) []Tas
 			
 			tasks = append(tasks, *task)
 			taskID++
+			
+			// Limit maximum tasks to prevent memory issues
+			if len(tasks) >= 50 {
+				break
+			}
 		}
 		
 		charPos = sentEnd

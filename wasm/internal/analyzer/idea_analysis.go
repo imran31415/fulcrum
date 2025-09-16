@@ -241,8 +241,23 @@ func extractIdeaClusters(sentences []string) []IdeaCluster {
 		return []IdeaCluster{}
 	}
 	
+	// Limit analysis for very long texts to prevent memory issues
+	maxSentences := 100
+	if len(sentences) > maxSentences {
+		// Sample sentences evenly throughout the text
+		step := len(sentences) / maxSentences
+		sampledSentences := []string{}
+		for i := 0; i < len(sentences); i += step {
+			if i < len(sentences) {
+				sampledSentences = append(sampledSentences, sentences[i])
+			}
+		}
+		sentences = sampledSentences
+	}
+	
 	// Simple clustering based on keyword overlap and semantic similarity
 	clusters := []IdeaCluster{}
+	maxClusters := 20 // Limit maximum clusters to prevent memory issues
 	
 	// Extract key terms from each sentence
 	sentenceTerms := make([][]string, len(sentences))
@@ -255,7 +270,7 @@ func extractIdeaClusters(sentences []string) []IdeaCluster {
 	clusterID := 0
 	
 	for i, sentence := range sentences {
-		if used[i] {
+		if used[i] || clusterID >= maxClusters {
 			continue
 		}
 		
@@ -268,14 +283,21 @@ func extractIdeaClusters(sentences []string) []IdeaCluster {
 		
 		used[i] = true
 		
-		// Find related sentences
-		for j := i + 1; j < len(sentences); j++ {
+		// Find related sentences (with a limit to prevent too large clusters)
+		maxClusterSize := 10
+		for j := i + 1; j < len(sentences) && len(cluster.Sentences) < maxClusterSize; j++ {
 			if used[j] {
 				continue
 			}
 			
+			// Lower threshold for longer texts to create fewer, larger clusters
+			threshold := 0.2
+			if len(sentences) > 50 {
+				threshold = 0.15
+			}
+			
 			similarity := calculateTermSimilarity(sentenceTerms[i], sentenceTerms[j])
-			if similarity > 0.3 { // Threshold for grouping
+			if similarity > threshold {
 				cluster.Sentences = append(cluster.Sentences, sentences[j])
 				cluster.KeyWords = mergeKeyWords(cluster.KeyWords, sentenceTerms[j])
 				used[j] = true

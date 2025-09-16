@@ -76,7 +76,7 @@ func AnalyzeComplexity(text string) ComplexityMetrics {
 			"0-18+ (US Grade Level)",
 			"Indicates the U.S. school grade level required to understand the text. Lower scores indicate easier readability.",
 			"Use to determine target audience education level. Aim for 6-8 for general audience, 12+ for academic content.",
-		)
+		).WithMethodology("Formula: 0.39 × (words/sentences) + 11.8 × (syllables/words) - 15.59")
 
 		fleschEase := 206.835 - 1.015*avgWordsPerSentence - 84.6*avgSyllablesPerWord
 		metrics.FleschReadingEase = NewEnhancedFloatMetric(
@@ -84,7 +84,7 @@ func AnalyzeComplexity(text string) ComplexityMetrics {
 			"0-100 (Higher = Easier)",
 			"Measures text readability. 90-100: Very Easy, 80-89: Easy, 70-79: Fairly Easy, 60-69: Standard, 50-59: Fairly Difficult, 30-49: Difficult, 0-29: Very Difficult.",
 			"Target 60-70 for general audience, 80+ for children, 30-50 for academic/technical content. Optimize by shortening sentences and using simpler words.",
-		)
+		).WithMethodology("Formula: 206.835 - 1.015 × (words/sentences) - 84.6 × (syllables/words)")
 
 		characters := float64(countCharacters(text))
 		ari := 4.71*(characters/numWords) + 0.5*(numWords/numSentences) - 21.43
@@ -93,7 +93,7 @@ func AnalyzeComplexity(text string) ComplexityMetrics {
 			"1-14+ (US Grade Level)",
 			"Character-based readability index that correlates with grade level. More stable than syllable-based measures.",
 			"Use for precise grade-level targeting. Particularly useful for technical writing where syllable counting may be unreliable.",
-		)
+		).WithMethodology("Formula: 4.71 × (characters/words) + 0.5 × (words/sentences) - 21.43")
 
 		letters := float64(countLetters(text))
 		colemanLiau := 0.0588*(letters/numWords*100) - 0.296*(numSentences/numWords*100) - 15.8
@@ -102,7 +102,7 @@ func AnalyzeComplexity(text string) ComplexityMetrics {
 			"1-16+ (US Grade Level)",
 			"Readability index based on characters per word and sentences per 100 words. Less affected by technical terms.",
 			"Ideal for technical documentation where specialized vocabulary is necessary but sentence structure can be optimized.",
-		)
+		).WithMethodology("Formula: 0.0588 × L - 0.296 × S - 15.8, where L = letters per 100 words, S = sentences per 100 words")
 	}
 
 	complexWords := countComplexWords(words)
@@ -113,7 +113,7 @@ func AnalyzeComplexity(text string) ComplexityMetrics {
 			"6-17+ (Years of Education)",
 			"Estimates years of formal education needed to understand text on first reading. Focuses on complex words (3+ syllables).",
 			"Target 8-12 for business writing, 6-8 for general public. Reduce by breaking long sentences and replacing complex words.",
-		)
+		).WithMethodology("Formula: 0.4 × [(words/sentences) + 100 × (complex words/words)]. Complex words = 3+ syllables")
 	}
 
 	polysyllabicWords := countPolysyllabicWords(words)
@@ -124,7 +124,7 @@ func AnalyzeComplexity(text string) ComplexityMetrics {
 			"7-18+ (Years of Education)",
 			"Simple Measure of Gobbledygook - estimates years of education needed for 100% comprehension. Requires 30+ sentences for accuracy.",
 			"Most accurate for longer texts. Use to ensure content matches audience education level. Healthcare materials often target SMOG 6-8.",
-		)
+		).WithMethodology("Formula: 1.043 × √(polysyllabic words × 30 / sentences) + 3.1291. Polysyllabic = 3+ syllables")
 	} else {
 		metrics.SMOGIndex = NewEnhancedFloatMetric(
 			0,
@@ -144,7 +144,7 @@ func AnalyzeComplexity(text string) ComplexityMetrics {
 		"0-1 (Higher = More Diverse)",
 		"Ratio of unique words to total words. Higher values indicate richer vocabulary and less repetition.",
 		"0.3-0.5 typical for general writing, 0.6+ indicates sophisticated vocabulary. Low scores may suggest repetitive writing or need for synonym variation.",
-	)
+	).WithMethodology("Formula: unique words / total words. Calculated using case-insensitive word matching")
 
 	sentComplexity := calculateAverageSentenceComplexity(sentences)
 	metrics.SentenceComplexityAverage = NewEnhancedFloatMetric(
@@ -152,7 +152,7 @@ func AnalyzeComplexity(text string) ComplexityMetrics {
 		"1-10+ (Higher = More Complex)",
 		"Average structural complexity per sentence based on clauses, conjunctions, and punctuation patterns.",
 		"1-2: Simple sentences, 3-4: Moderate complexity, 5+: Complex sentences. Balance complexity with readability goals.",
-	)
+	).WithMethodology("Formula: Sum of (comma count × 2 + semicolon × 3 + conjunction words) per sentence / sentence count")
 
 	wordComplexDist := calculateWordComplexityDistribution(words)
 	metrics.WordComplexityDistribution = NewEnhancedMapMetric(
@@ -160,7 +160,7 @@ func AnalyzeComplexity(text string) ComplexityMetrics {
 		"Count by Category",
 		"Distribution of words by syllable complexity: simple (1 syllable), moderate (2 syllables), complex (3+ syllables).",
 		"Monitor complex word ratio. High complex word count may indicate need for simpler alternatives to improve readability.",
-	)
+	).WithMethodology("Syllable counting: vowel groups (aeiou) with special rules for silent 'e' and consecutive vowels")
 
 	return metrics
 }

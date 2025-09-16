@@ -14,6 +14,7 @@ type EnhancedStringMetric struct {
 	Scale               string `json:"scale"`
 	HelpText            string `json:"help_text"`
 	PracticalApplication string `json:"practical_application"`
+	Methodology         string `json:"methodology,omitempty"`
 }
 
 // EnhancedFloatMetric for float-based metrics
@@ -22,6 +23,7 @@ type EnhancedFloatMetric struct {
 	Scale               string  `json:"scale"`
 	HelpText            string  `json:"help_text"`
 	PracticalApplication string  `json:"practical_application"`
+	Methodology         string  `json:"methodology,omitempty"`
 }
 
 // EnhancedIntMetric for integer-based metrics
@@ -30,6 +32,7 @@ type EnhancedIntMetric struct {
 	Scale               string `json:"scale"`
 	HelpText            string `json:"help_text"`
 	PracticalApplication string `json:"practical_application"`
+	Methodology         string `json:"methodology,omitempty"`
 }
 
 // EnhancedMapMetric for map-based metrics
@@ -38,6 +41,7 @@ type EnhancedMapMetric struct {
 	Scale               string         `json:"scale"`
 	HelpText            string         `json:"help_text"`
 	PracticalApplication string         `json:"practical_application"`
+	Methodology         string         `json:"methodology,omitempty"`
 }
 
 // EnhancedStringSliceMetric for string slice metrics
@@ -46,6 +50,7 @@ type EnhancedStringSliceMetric struct {
 	Scale               string   `json:"scale"`
 	HelpText            string   `json:"help_text"`
 	PracticalApplication string   `json:"practical_application"`
+	Methodology         string   `json:"methodology,omitempty"`
 }
 
 // EnhancedBoolMetric for boolean metrics
@@ -54,6 +59,7 @@ type EnhancedBoolMetric struct {
 	Scale               string `json:"scale"`
 	HelpText            string `json:"help_text"`
 	PracticalApplication string `json:"practical_application"`
+	Methodology         string `json:"methodology,omitempty"`
 }
 
 // Utility functions to create enhanced metrics easily
@@ -67,6 +73,11 @@ func NewEnhancedFloatMetric(value float64, scale, helpText, practicalApp string)
 	}
 }
 
+func (m EnhancedFloatMetric) WithMethodology(method string) EnhancedFloatMetric {
+	m.Methodology = method
+	return m
+}
+
 func NewEnhancedIntMetric(value int, scale, helpText, practicalApp string) EnhancedIntMetric {
 	return EnhancedIntMetric{
 		Value:               value,
@@ -74,6 +85,11 @@ func NewEnhancedIntMetric(value int, scale, helpText, practicalApp string) Enhan
 		HelpText:            helpText,
 		PracticalApplication: practicalApp,
 	}
+}
+
+func (m EnhancedIntMetric) WithMethodology(method string) EnhancedIntMetric {
+	m.Methodology = method
+	return m
 }
 
 func NewEnhancedStringMetric(value, scale, helpText, practicalApp string) EnhancedStringMetric {
@@ -85,6 +101,11 @@ func NewEnhancedStringMetric(value, scale, helpText, practicalApp string) Enhanc
 	}
 }
 
+func (m EnhancedStringMetric) WithMethodology(method string) EnhancedStringMetric {
+	m.Methodology = method
+	return m
+}
+
 func NewEnhancedMapMetric(value map[string]int, scale, helpText, practicalApp string) EnhancedMapMetric {
 	return EnhancedMapMetric{
 		Value:               value,
@@ -92,6 +113,11 @@ func NewEnhancedMapMetric(value map[string]int, scale, helpText, practicalApp st
 		HelpText:            helpText,
 		PracticalApplication: practicalApp,
 	}
+}
+
+func (m EnhancedMapMetric) WithMethodology(method string) EnhancedMapMetric {
+	m.Methodology = method
+	return m
 }
 
 func NewEnhancedStringSliceMetric(value []string, scale, helpText, practicalApp string) EnhancedStringSliceMetric {
@@ -103,6 +129,11 @@ func NewEnhancedStringSliceMetric(value []string, scale, helpText, practicalApp 
 	}
 }
 
+func (m EnhancedStringSliceMetric) WithMethodology(method string) EnhancedStringSliceMetric {
+	m.Methodology = method
+	return m
+}
+
 func NewEnhancedBoolMetric(value bool, scale, helpText, practicalApp string) EnhancedBoolMetric {
 	return EnhancedBoolMetric{
 		Value:               value,
@@ -110,4 +141,9 @@ func NewEnhancedBoolMetric(value bool, scale, helpText, practicalApp string) Enh
 		HelpText:            helpText,
 		PracticalApplication: practicalApp,
 	}
+}
+
+func (m EnhancedBoolMetric) WithMethodology(method string) EnhancedBoolMetric {
+	m.Methodology = method
+	return m
 }

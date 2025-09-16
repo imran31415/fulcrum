@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WASM Debug Test</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>WASM Direct Test</h1>
+    <button id="testBtn">Test WASM Analysis</button>
+    <pre id="output"></pre>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        const go = new Go();
+        const output = document.getElementById('output');
+        
+        function log(msg) {
+            output.textContent += msg + '\n';
+            console.log(msg);
+        }
+
+        WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+            go.run(result.instance);
+            log('WASM loaded successfully');
+            
+            document.getElementById('testBtn').addEventListener('click', async () => {
+                log('\n--- Starting Test ---');
+                
+                const testText = `I need to build a web application. 
+                First, we must set up the database. 
+                Then we should implement the login API. 
+                Finally, we need to add password reset.`;
+                
+                log('Input text: ' + testText);
+                
+                try {
+                    const result = await window.processText('analyze', testText);
+                    log('Raw result type: ' + typeof result);
+                    log('Result success: ' + result.success);
+                    
+                    if (result.success && result.data) {
+                        const parsed = JSON.parse(result.data);
+                        log('Parsed data keys: ' + Object.keys(parsed).join(', '));
+                        log('Has prompt_grade: ' + ('prompt_grade' in parsed));
+                        
+                        if (parsed.prompt_grade) {
+                            log('Prompt grade found!');
+                            log('Overall score: ' + parsed.prompt_grade.overall_grade?.score);
+                            log('Overall grade: ' + parsed.prompt_grade.overall_grade?.grade);
+                        } else {
+                            log('ERROR: prompt_grade is missing!');
+                        }
+                        
+                        // Show full JSON
+                        log('\n--- Full JSON (first 500 chars) ---');
+                        log(result.data.substring(0, 500));
+                    }
+                } catch (err) {
+                    log('ERROR: ' + err.message);
+                    console.error(err);
+                }
+            });
+        }).catch(err => {
+            log('Failed to load WASM: ' + err.message);
+        });
+    </script>
+</body>
+</html>

@@ -17,26 +17,46 @@ install: ## Install dependencies using yarn
 	@echo "Installing dependencies..."
 	yarn install
 
-run: ## Start the Expo development server (default for local dev)
-	@echo "Starting Expo development server..."
-	yarn start
+run: ## Start the Expo development server on port 8084 (default for local dev)
+	@echo "Starting Expo development server on port 8084..."
+	PORT=8084 npx expo start --port 8084
 
-run-android: ## Run the app on Android device/emulator
-	@echo "Starting app on Android..."
-	yarn android
+run-android: ## Run the app on Android device/emulator (port 8084)
+	@echo "Starting app on Android (port 8084)..."
+	PORT=8084 npx expo start --android --port 8084
 
-run-ios: ## Run the app on iOS simulator (macOS only)
-	@echo "Starting app on iOS simulator..."
-	yarn ios
+run-ios: ## Run the app on iOS simulator (macOS only, port 8084)
+	@echo "Starting app on iOS simulator (port 8084)..."
+	PORT=8084 npx expo start --ios --port 8084
 
-run-web: ## Run the app in web browser
-	@echo "Starting app in web browser..."
-	yarn web
+run-web: ## Run the app in web browser on port 8084
+	@echo "Starting app in web browser on port 8084..."
+	PORT=8084 npx expo start --web --port 8084
 
 ## Build Commands
 build: ## Build the app for production (placeholder for future use)
 	@echo "Building app for production..."
 	@echo "Note: Add specific build commands when needed (e.g., EAS Build)"
+
+## WASM Build Commands
+wasm-build: ## Build the WASM module from Go source and update wasmData.js
+	@echo "Building WASM module and updating embedded data..."
+	cd wasm && bash build.sh
+	@echo "✅ WASM build complete"
+	@echo "📦 wasmData.js updated with new WASM"
+
+wasm-clean: ## Clean and rebuild WASM module
+	@echo "Cleaning WASM build..."
+	rm -f public/main.wasm
+	$(MAKE) wasm-build
+
+wasm-test: ## Test WASM build locally
+	@echo "Testing WASM module..."
+	cd wasm && go test ./...
+
+wasm-dev: wasm-build ## Build WASM and start dev server on port 8084
+	@echo "WASM built, starting dev server on port 8084..."
+	$(MAKE) run
 
 ## Development Tools
 clean: ## Clean node_modules and reinstall dependencies

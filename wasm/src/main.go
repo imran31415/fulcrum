@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall/js"
@@ -19,6 +20,7 @@ type CombinedResult struct {
 	Ideas         analyzer.IdeaAnalysisMetrics `json:"idea_analysis"`
 	Insights      analyzer.InsightAnalysis     `json:"insights"`
 	TaskGraph     analyzer.TaskGraph           `json:"task_graph"`
+	PromptGrade   analyzer.PromptGrade         `json:"prompt_grade"`
 	TestField     string                       `json:"test_field"`
 }
 
@@ -36,13 +38,24 @@ func processText(this js.Value, args []js.Value) interface{} {
 
 	switch operation {
 	case "analyze":
+		// Add panic recovery to prevent crashes
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("Recovered from panic: %v\n", r)
+			}
+		}()
+		
+		// Force garbage collection before heavy analysis
+		runtime.GC()
+		
 		// Initialize performance tracking
 		requestID := fmt.Sprintf("req_%d", time.Now().UnixNano())
 		perf := analyzer.NewPerformanceMetrics(requestID)
 		
-		var wg sync.WaitGroup
-		wg.Add(4) // Added idea analysis
-
+		// Create worker pool with limited goroutines (2 for WASM environment)
+		pool := analyzer.NewWorkerPool(2)
+		defer pool.Close()
+		
 		var comp analyzer.ComplexityMetrics
 		var tok analyzer.TokenData
 		var pre analyzer.PreprocessingData
@@ -50,44 +63,88 @@ func processText(this js.Value, args []js.Value) interface{} {
 		
 		// Track individual operation durations
 		var complexityDur, tokenDur, preprocessDur, ideaDur time.Duration
+		var mu sync.Mutex // Protect concurrent writes
 
-		go func() {
-			defer wg.Done()
+		// Submit tasks to worker pool instead of creating unlimited goroutines
+		pool.Submit(func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Complexity analysis panic: %v\n", r)
+				}
+			}()
 			timer := analyzer.NewTimer("complexity_analysis")
-			comp = analyzer.AnalyzeComplexity(text)
-			complexityDur = timer.Stop()
-		}()
+			result := analyzer.AnalyzeComplexity(text)
+			dur := timer.Stop()
+			mu.Lock()
+			comp = result
+			complexityDur = dur
+			mu.Unlock()
+		})
 		
-		go func() {
-			defer wg.Done()
+		pool.Submit(func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Tokenization panic: %v\n", r)
+				}
+			}()
 			timer := analyzer.NewTimer("tokenization")
-			tok = analyzer.TokenizeText(text)
-			tokenDur = timer.Stop()
-		}()
+			result := analyzer.TokenizeText(text)
+			dur := timer.Stop()
+			mu.Lock()
+			tok = result
+			tokenDur = dur
+			mu.Unlock()
+		})
 		
-		go func() {
-			defer wg.Done()
+		pool.Submit(func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Preprocessing panic: %v\n", r)
+				}
+			}()
 			timer := analyzer.NewTimer("preprocessing")
-			pre = analyzer.PreprocessText(text)
-			preprocessDur = timer.Stop()
-		}()
+			result := analyzer.PreprocessText(text)
+			dur := timer.Stop()
+			mu.Lock()
+			pre = result
+			preprocessDur = dur
+			mu.Unlock()
+		})
 		
-		go func() {
-			defer wg.Done()
+		pool.Submit(func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Idea analysis panic: %v\n", r)
+				}
+			}()
 			timer := analyzer.NewTimer("idea_analysis")
-			ideas = analyzer.AnalyzeIdeas(text)
-			ideaDur = timer.Stop()
-		}()
+			result := analyzer.AnalyzeIdeas(text)
+			dur := timer.Stop()
+			mu.Lock()
+			ideas = result
+			ideaDur = dur
+			mu.Unlock()
+		})
 
-	wg.Wait()
+		// Wait for all tasks to complete
+		pool.Wait()
+		
+		// Force GC after parallel processing
+		runtime.GC()
 		
 		// Extract task graph from ideas
 		taskGraphTimer := analyzer.NewTimer("task_graph_extraction")
 		// Extract sentences from existing idea clusters
 		var sentences []string
-		fmt.Printf("DEBUG: Number of idea clusters: %d\n", len(ideas.SemanticClusters.Value))
+		// Limit debug output for large texts
+		if len(ideas.SemanticClusters.Value) < 30 {
+			fmt.Printf("DEBUG: Number of idea clusters: %d\n", len(ideas.SemanticClusters.Value))
+		}
 		for i, cluster := range ideas.SemanticClusters.Value {
-			fmt.Printf("DEBUG: Cluster %d has %d sentences\n", i, len(cluster.Sentences))
+			// Only log first few clusters to prevent log spam
+			if i < 5 {
+				fmt.Printf("DEBUG: Cluster %d has %d sentences\n", i, len(cluster.Sentences))
+			}
 			sentences = append(sentences, cluster.Sentences...)
 		}
 		fmt.Printf("DEBUG: Total sentences collected: %d\n", len(sentences))
@@ -134,36 +191,52 @@ func processText(this js.Value, args []js.Value) interface{} {
 		insights := analyzer.TransformToInsights(comp, ideas, tok, pre)
 		insightDur := insightTimer.Stop()
 		
+		// Calculate prompt grade
+		gradeTimer := analyzer.NewTimer("prompt_grade_calculation")
+		promptGrade := analyzer.CalculatePromptGrade(comp, tok, pre, ideas, *taskGraph, text)
+		gradeDur := gradeTimer.Stop()
+		
+		// Debug logging for prompt grade
+		fmt.Printf("DEBUG: PromptGrade calculated - Overall score: %.2f, Grade: %s\n", 
+			promptGrade.OverallGrade.Score, promptGrade.OverallGrade.Grade)
+		
 		// Finalize performance metrics
 		perf.Finalize(complexityDur, tokenDur, preprocessDur)
 		perf.AddSubOperation("idea_analysis", ideaDur)
 		perf.AddSubOperation("task_graph_extraction", taskGraphDur)
 		perf.AddSubOperation("insight_generation", insightDur)
+		perf.AddSubOperation("prompt_grade_calculation", gradeDur)
 		
 		// Add any additional sub-operations timing if needed
 		perf.AddSubOperation("json_marshaling", 0) // Will be updated below
 		
 		marshalTimer := analyzer.NewTimer("json_marshaling")
-		combined := CombinedResult{
-			Complexity:    comp,
-			Tokens:        tok,
-			Preprocessing: pre,
-			Performance:   *perf,
-			Ideas:         ideas,
-			Insights:      insights,
+	combined := CombinedResult{
+		Complexity:    comp,
+		Tokens:        tok,
+		Preprocessing: pre,
+		Performance:   *perf,
+		Ideas:         ideas,
+		Insights:      insights,
 		TaskGraph:     *taskGraph,
-			TestField:     "THIS IS A TEST",
-		}
+		PromptGrade:   *promptGrade,
+		TestField:     "THIS IS A TEST",
+	}
 		
 		// Measure JSON marshaling time
 		b, err := json.Marshal(combined)
 		marshalDur := marshalTimer.Stop()
 		
-		// DEBUG: Check if task_graph is in the JSON
+		// DEBUG: Check if task_graph and prompt_grade are in the JSON
 		if strings.Contains(string(b), "task_graph") {
 			fmt.Println("✅ task_graph found in marshaled JSON")
 		} else {
 			fmt.Println("❌ task_graph NOT FOUND in marshaled JSON")
+		}
+		if strings.Contains(string(b), "prompt_grade") {
+			fmt.Println("✅ prompt_grade found in marshaled JSON")
+		} else {
+			fmt.Println("❌ prompt_grade NOT FOUND in marshaled JSON")
 		}
 		
 		// Update the marshaling timing in performance metrics
@@ -221,16 +294,38 @@ func processText(this js.Value, args []js.Value) interface{} {
 	}
 }
 
-func main() {
-	// Keep the main goroutine alive
-	done := make(chan struct{})
+// Global channel to prevent the program from exiting
+var keepAlive = make(chan struct{})
 
-	// Register the Fulcrum API
-	js.Global().Set("processText", js.FuncOf(processText))
+func main() {
+	// Set GOMAXPROCS to a reasonable value for WASM
+	runtime.GOMAXPROCS(2)
+	
+	// Set up cleanup handler
+	js.Global().Set("cleanupWasm", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		fmt.Println("Cleaning up WASM module...")
+		close(keepAlive)
+		return nil
+	}))
+
+	// Register the Fulcrum API with error recovery
+	js.Global().Set("processText", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// Wrap the actual function with panic recovery
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("Main processText recovered from panic: %v\n", r)
+			}
+		}()
+		return processText(this, args)
+	}))
 
 	// Signal that WASM module is ready
 	js.Global().Set("wasmReady", js.ValueOf(true))
 
 	fmt.Println("Fulcrum WASM module loaded successfully")
-	<-done
+	fmt.Printf("Runtime: GOMAXPROCS=%d, NumCPU=%d\n", runtime.GOMAXPROCS(0), runtime.NumCPU())
+	
+	// Keep the Go program running
+	<-keepAlive
+	fmt.Println("WASM module shutting down gracefully")
 }

@@ -1,12 +1,28 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TextInput, Pressable, ScrollView, SafeAreaView, Platform } from 'react-native';
-import { initWasm, processText } from './src/wasm';
+import { StyleSheet, Text, View, TextInput, Pressable, ScrollView, SafeAreaView, Platform, InteractionManager, Dimensions, Modal } from 'react-native';
+// Conditionally import WASM based on platform and worker support
+let initWasm, processText;
+if (Platform.OS === 'web' && typeof Worker !== 'undefined') {
+  // Use web worker version for web platform
+  const wasmWorker = require('./src/wasm/index.webworker');
+  initWasm = wasmWorker.initWasm;
+  processText = wasmWorker.processText;
+} else {
+  // Use regular version for React Native or web without workers
+  const wasmModule = require('./src/wasm');
+  initWasm = wasmModule.initWasm;
+  processText = wasmModule.processText;
+}
 import { WasmProvider } from './src/wasm/WasmProvider';
 import { EnhancedResultDisplay } from './src/components/AnalysisComponents';
 import { PerformanceCompact } from './src/components/PerformanceComponents';
 import { InsightsTab } from './src/components/InsightComponents';
 import TaskGraph from './components/TaskGraph';
+import PromptGradeTab from './src/components/PromptGradeTab';
+import SuggestionsTab from './src/components/SuggestionsTab';
+import LoadingProgress from './src/components/LoadingProgress';
+import MarkdownTextInput from './src/components/MarkdownTextInput';
 // Ensure the native WebView module is installed (for iOS/Android):
 //   expo install react-native-webview
 
@@ -19,8 +35,11 @@ export default function App() {
   const [error, setError] = useState('');
   const [showRawJSON, setShowRawJSON] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [activeTab, setActiveTab] = useState('taskgraph'); // 'taskgraph', 'insights', 'metrics', 'raw'
+  const [activeTab, setActiveTab] = useState('promptgrade'); // 'promptgrade', 'suggestions', 'taskgraph', 'insights', 'metrics', 'raw'
   const [showExamples, setShowExamples] = useState(false);
+  const [useEnhancedEditor, setUseEnhancedEditor] = useState(true); // Default to enhanced editor
+  const [showTabSelector, setShowTabSelector] = useState(false);
+  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
 
   const examplePrompts = [
     {
@@ -54,20 +73,48 @@ export default function App() {
     initWasm().then(() => setReady(true)).catch((e) => setError(String(e)));
   }, []);
 
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenWidth(window.width);
+    });
+    return () => subscription?.remove();
+  }, []);
+
 
   const run = async (op) => {
     setError('');
-    setIsAnalyzing(true);
+    // Don't set isAnalyzing here if it's already set (from button press)
+    if (!isAnalyzing) {
+      setIsAnalyzing(true);
+    }
     // Reset active tab when switching operations
     if (op !== 'analyze') {
       setActiveTab('simple');
     } else {
-      setActiveTab('taskgraph');
+      setActiveTab('promptgrade');
+    }
+    
+    // Defer the heavy WASM processing to allow UI updates
+    if (Platform.OS === 'web') {
+      // For web, use setTimeout to defer to next event loop
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } else {
+      // For React Native, use InteractionManager for smoother performance
+      await new Promise(resolve => {
+        InteractionManager.runAfterInteractions(() => {
+          resolve();
+        });
+      });
     }
     
     try {
+      // Add another small delay to ensure loading animation is visible
+      await new Promise(resolve => requestAnimationFrame(() => resolve()));
+      
       const out = await processText(op, input);
       console.log('Raw WASM output:', out);
+      // Store for debugging
+      window.lastWasmOutput = out;
       
       // Better debug logging for TaskGraph
       if (out?.success && out?.data) {
@@ -105,8 +152,20 @@ export default function App() {
               console.log('FULL PARSED DATA:', parsed);
               console.log('KEYS IN PARSED DATA:', Object.keys(parsed));
               console.log('TASK_GRAPH IN DATA:', parsed.task_graph);
+              console.log('PROMPT_GRADE IN DATA:', parsed.prompt_grade);
+              console.log('Has prompt_grade key?', 'prompt_grade' in parsed);
+              if (parsed.prompt_grade) {
+                console.log('PromptGrade details:', {
+                  overallGrade: parsed.prompt_grade.overall_grade,
+                  understandability: parsed.prompt_grade.understandability?.score,
+                  specificity: parsed.prompt_grade.specificity?.score,
+                  suggestions: parsed.prompt_grade.suggestions?.length
+                });
+              }
               setResult(data);
               setParsedResult(parsed);
+              // Expose for debugging
+              window.parsedResult = parsed;
             } catch {
               // Not JSON, treat as plain text
               setResult(data);
@@ -140,12 +199,47 @@ export default function App() {
       console.error('Analysis error:', e);
       setError(String(e));
     } finally {
-      setIsAnalyzing(false);
+      // Add a small delay before hiding the loading animation for smooth transition
+      setTimeout(() => setIsAnalyzing(false), 500);
     }
   };
 
+  // Helper function to get available tabs
+  const getAvailableTabs = () => {
+    const tabs = [];
+    
+    if (parsedResult?.prompt_grade !== undefined) {
+      tabs.push({ key: 'promptgrade', label: '📊 Grade', icon: '📊' });
+    }
+    
+    if (parsedResult?.prompt_grade?.suggestions?.length > 0) {
+      tabs.push({ 
+        key: 'suggestions', 
+        label: `💡 Suggestions (${parsedResult.prompt_grade.suggestions.length})`, 
+        icon: '💡' 
+      });
+    }
+    
+    if (parsedResult?.task_graph !== undefined) {
+      tabs.push({ key: 'taskgraph', label: '🎯 Tasks', icon: '🎯' });
+    }
+    
+    if (parsedResult?.idea_analysis || parsedResult?.insights) {
+      tabs.push({ key: 'insights', label: '🔍 Insights', icon: '🔍' });
+    }
+    
+    tabs.push({ key: 'metrics', label: '📊 Metrics', icon: '📊' });
+    tabs.push({ key: 'raw', label: '🔧 Raw', icon: '🔧' });
+    
+    return tabs;
+  };
+
+  const availableTabs = getAvailableTabs();
+  const isNarrowScreen = screenWidth < 768; // Consider screens under 768px as narrow
+
   return (
     <SafeAreaView style={styles.safe}>
+      <LoadingProgress isAnalyzing={isAnalyzing} promptText={input} />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         {/* Mount native WebView bridge invisibly on iOS/Android */}
         {Platform.OS !== 'web' ? <WasmProvider /> : null}
@@ -167,14 +261,24 @@ export default function App() {
                 <Text style={styles.sectionLabel}>Text Analysis Input</Text>
                 <Text style={styles.inputSubtitle}>Enter text to analyze for tasks, complexity, and insights</Text>
               </View>
-              <Pressable
-                style={styles.examplesButton}
-                onPress={() => setShowExamples(!showExamples)}
-              >
-                <Text style={styles.examplesButtonText}>
-                  {showExamples ? '✕ Close' : '💡 Examples'}
-                </Text>
-              </Pressable>
+              <View style={styles.inputHeaderButtons}>
+                <Pressable
+                  style={styles.headerButton}
+                  onPress={() => setUseEnhancedEditor(!useEnhancedEditor)}
+                >
+                  <Text style={styles.headerButtonText}>
+                    {useEnhancedEditor ? '📝 Simple' : '✨ Enhanced'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.headerButton}
+                  onPress={() => setShowExamples(!showExamples)}
+                >
+                  <Text style={styles.headerButtonText}>
+                    {showExamples ? '✕ Close' : '💡 Examples'}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
             
             {/* Example Prompts */}
@@ -216,29 +320,39 @@ export default function App() {
               </ScrollView>
             )}
             
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                multiline
-                value={input}
-                onChangeText={setInput}
-                placeholder="Type or paste your text here...\n\nTry describing a workflow, project plan, or any text with sequential tasks."
-                placeholderTextColor="#94a3b8"
-              />
-              <View style={styles.inputFooter}>
-                <Text style={styles.charCount}>
-                  {input.length} characters • {input.split(' ').filter(w => w).length} words
-                </Text>
-                {input.length > 0 && (
-                  <Pressable
-                    style={styles.clearButton}
-                    onPress={() => setInput('')}
-                  >
-                    <Text style={styles.clearButtonText}>Clear</Text>
-                  </Pressable>
-                )}
+            {useEnhancedEditor ? (
+              <View style={styles.enhancedEditorWrapper}>
+                <MarkdownTextInput
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
+                />
               </View>
-            </View>
+            ) : (
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  multiline
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder="Type or paste your text here...\n\nTry describing a workflow, project plan, or any text with sequential tasks."
+                  placeholderTextColor="#94a3b8"
+                />
+                <View style={styles.inputFooter}>
+                  <Text style={styles.charCount}>
+                    {input.length} characters • {input.split(' ').filter(w => w).length} words
+                  </Text>
+                  {input.length > 0 && (
+                    <Pressable
+                      style={styles.clearButton}
+                      onPress={() => setInput('')}
+                    >
+                      <Text style={styles.clearButtonText}>Clear</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Actions */}
@@ -252,7 +366,18 @@ export default function App() {
             <Pressable style={styles.btn} onPress={() => run('wordcount')} disabled={!ready || isAnalyzing}>
               <Text style={styles.btnText}>Wordcount</Text>
             </Pressable>
-            <Pressable style={styles.btnPrimary} onPress={() => run('analyze')} disabled={!ready || isAnalyzing}>
+            <Pressable 
+              style={[styles.btnPrimary, isAnalyzing && styles.btnPrimaryAnalyzing]} 
+              onPress={() => {
+                if (!isAnalyzing && ready) {
+                  // Immediate feedback
+                  setIsAnalyzing(true);
+                  // Run analysis after state update
+                  setTimeout(() => run('analyze'), 10);
+                }
+              }} 
+              disabled={!ready || isAnalyzing}
+            >
               <Text style={styles.btnPrimaryText}>{isAnalyzing ? 'Analyzing...' : 'Analyze'}</Text>
             </Pressable>
           </View>
@@ -274,50 +399,41 @@ export default function App() {
           
           {/* Tab Navigation - Only show for analyze operation */}
           {parsedResult && parsedResult.complexity_metrics && (
-            <View style={styles.tabBar}>
-              {console.log('Tab render - task_graph exists:', !!parsedResult.task_graph, 'value:', parsedResult.task_graph)}
-              {(parsedResult.task_graph !== undefined) && (
-                <Pressable 
-                  style={[styles.tab, activeTab === 'taskgraph' && styles.activeTab]}
-                  onPress={() => setActiveTab('taskgraph')}
-                >
-                  <Text style={[styles.tabText, activeTab === 'taskgraph' && styles.activeTabText]}>
-                    🎯 Task Graph
+            <View style={styles.tabContainer}>
+              {isNarrowScreen ? (
+                // Mobile: Show gear icon with bottom sheet
+                <View style={styles.mobileTabContainer}>
+                  <Text style={styles.currentTabLabel}>
+                    {availableTabs.find(tab => tab.key === activeTab)?.label || 'Analysis'}
                   </Text>
-                  <View style={styles.derivedBadge}>
-                    <Text style={styles.derivedBadgeText}>AI-EXTRACTED</Text>
-                  </View>
-                </Pressable>
-              )}
-              
-              {(parsedResult.idea_analysis || parsedResult.insights) && (
-                <Pressable 
-                  style={[styles.tab, activeTab === 'insights' && styles.activeTab]}
-                  onPress={() => setActiveTab('insights')}
+                  <Pressable 
+                    style={styles.moreAnalysisButton}
+                    onPress={() => setShowTabSelector(true)}
+                  >
+                    <Text style={styles.gearIcon}>⚙️</Text>
+                    <Text style={styles.moreAnalysisText}>More analysis</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                // Desktop: Show all tabs in ScrollView
+                <ScrollView 
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.tabScrollContent}
                 >
-                  <Text style={[styles.tabText, activeTab === 'insights' && styles.activeTabText]}>
-                    🔍 Insights
-                  </Text>
-                </Pressable>
+                  {availableTabs.map((tab) => (
+                    <Pressable 
+                      key={tab.key}
+                      style={[styles.simpleTab, activeTab === tab.key && styles.simpleActiveTab]}
+                      onPress={() => setActiveTab(tab.key)}
+                    >
+                      <Text style={[styles.simpleTabText, activeTab === tab.key && styles.simpleActiveTabText]}>
+                        {tab.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
               )}
-              
-              <Pressable 
-                style={[styles.tab, activeTab === 'metrics' && styles.activeTab]}
-                onPress={() => setActiveTab('metrics')}
-              >
-                <Text style={[styles.tabText, activeTab === 'metrics' && styles.activeTabText]}>
-                  📊 Metrics
-                </Text>
-              </Pressable>
-              
-              <Pressable 
-                style={[styles.tab, activeTab === 'raw' && styles.activeTab]}
-                onPress={() => setActiveTab('raw')}
-              >
-                <Text style={[styles.tabText, activeTab === 'raw' && styles.activeTabText]}>
-                  🔧 Raw JSON
-                </Text>
-              </Pressable>
             </View>
           )}
           
@@ -325,10 +441,10 @@ export default function App() {
           {result ? (
             parsedResult && parsedResult.complexity_metrics ? (
               // Analysis results with tabs
-              activeTab === 'raw' ? (
-                <ScrollView style={styles.output} contentContainerStyle={styles.outputContent}>
-                  <Text selectable style={styles.code}>{result}</Text>
-                </ScrollView>
+              activeTab === 'promptgrade' ? (
+                <PromptGradeTab data={parsedResult} />
+              ) : activeTab === 'suggestions' ? (
+                <SuggestionsTab data={parsedResult} />
               ) : activeTab === 'taskgraph' ? (
                 parsedResult.task_graph ? (
                   <TaskGraph taskGraphData={parsedResult.task_graph} />
@@ -341,6 +457,10 @@ export default function App() {
                 <InsightsTab data={parsedResult} />
               ) : activeTab === 'metrics' ? (
                 <EnhancedResultDisplay data={parsedResult} />
+              ) : activeTab === 'raw' ? (
+                <ScrollView style={styles.output} contentContainerStyle={styles.outputContent}>
+                  <Text selectable style={styles.code}>{result}</Text>
+                </ScrollView>
               ) : null
             ) : (
               // Simple text results (uppercase, lowercase, wordcount)
@@ -355,6 +475,59 @@ export default function App() {
 
         <StatusBar style="light" />
       </ScrollView>
+
+      {/* Tab Selector Modal for Mobile */}
+      <Modal
+        visible={showTabSelector}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTabSelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable 
+            style={styles.modalBackground} 
+            onPress={() => setShowTabSelector(false)}
+          />
+          <View style={styles.bottomSheet}>
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>Select Analysis View</Text>
+              <Pressable 
+                style={styles.closeButton}
+                onPress={() => setShowTabSelector(false)}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </Pressable>
+            </View>
+            
+            <ScrollView style={styles.tabOptions}>
+              {availableTabs.map((tab) => (
+                <Pressable 
+                  key={tab.key}
+                  style={[
+                    styles.tabOption,
+                    activeTab === tab.key && styles.activeTabOption
+                  ]}
+                  onPress={() => {
+                    setActiveTab(tab.key);
+                    setShowTabSelector(false);
+                  }}
+                >
+                  <Text style={styles.tabOptionIcon}>{tab.icon}</Text>
+                  <Text style={[
+                    styles.tabOptionText,
+                    activeTab === tab.key && styles.activeTabOptionText
+                  ]}>
+                    {tab.label}
+                  </Text>
+                  {activeTab === tab.key && (
+                    <Text style={styles.checkIcon}>✓</Text>
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -435,6 +608,26 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 12,
     marginTop: 2,
+  },
+  inputHeaderButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#667eea',
+    borderRadius: 20,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  headerButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   examplesButton: {
     paddingHorizontal: 12,
@@ -524,6 +717,10 @@ const styles = StyleSheet.create({
     elevation: 2,
     overflow: 'hidden',
   },
+  enhancedEditorWrapper: {
+    width: '100%',
+    flex: 1,
+  },
   outputHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -535,47 +732,148 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  tabBar: {
-    flexDirection: 'row',
+  tabContainer: {
     marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
-  tab: {
+  tabScrollContent: {
     flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  simpleTab: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    marginRight: 8,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  activeTab: {
-    borderBottomColor: '#646cff',
+  simpleActiveTab: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
   },
-  tabText: {
+  simpleTabText: {
     fontSize: 14,
     color: '#64748b',
     fontWeight: '500',
   },
-  activeTabText: {
-    color: '#646cff',
+  simpleActiveTabText: {
+    color: '#ffffff',
     fontWeight: '600',
   },
-  derivedBadge: {
-    marginLeft: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    backgroundColor: '#646cff20',
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#646cff40',
+  // Mobile tab styles
+  mobileTabContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  derivedBadgeText: {
-    fontSize: 9,
-    color: '#646cff',
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  currentTabLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    flex: 1,
+  },
+  moreAnalysisButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  gearIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  moreAnalysisText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  bottomSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  bottomSheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  bottomSheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  tabOptions: {
+    maxHeight: 400,
+  },
+  tabOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  activeTabOption: {
+    backgroundColor: '#eff6ff',
+  },
+  tabOptionIcon: {
+    fontSize: 20,
+    marginRight: 12,
+    width: 24,
+  },
+  tabOptionText: {
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: '500',
+    flex: 1,
+  },
+  activeTabOptionText: {
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  checkIcon: {
+    fontSize: 18,
+    color: '#2563eb',
+    fontWeight: '600',
   },
   toggleBtn: {
     backgroundColor: '#f1f5f9',
@@ -662,6 +960,10 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  btnPrimaryAnalyzing: {
+    backgroundColor: '#64748b',
+    opacity: 0.9,
   },
   errorBox: {
     borderWidth: 1,
