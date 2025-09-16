@@ -1,6 +1,6 @@
 # Fulcrum Text Analysis Service
 
-A comprehensive Go service for deep text analysis that provides extensive preprocessing, tokenization, and complexity analysis capabilities.  Useful for LLM preprocessing or breaking down text into categorized pieces. 
+A comprehensive backendless (using WASM + go + react-native) service for deep text analysis that provides extensive preprocessing, tokenization, and complexity analysis capabilities.  Useful for LLM preprocessing or breaking down text into categorized pieces. 
 
 Demo: https:/fulcrum.scalebase.io
 
