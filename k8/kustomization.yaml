@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: fulcrum
+
+resources:
+- namespace.yaml
+- configmap.yaml
+- deployment.yaml
+- service.yaml
+- ingress.yaml
+- hpa.yaml
+
+labels:
+- includeSelectors: true
+  pairs:
+    app: fulcrum
+    version: v1.0.0
+    managed-by: kustomize
+
+commonLabels:
+  app.kubernetes.io/name: fulcrum
+  app.kubernetes.io/instance: production
+  app.kubernetes.io/component: web
+  app.kubernetes.io/managed-by: kustomize
