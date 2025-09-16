@@ -31,6 +31,7 @@ export default function SuggestionsTab({ data }) {
   }
 
   const suggestions = data.prompt_grade.suggestions;
+  const meta = data.prompt_grade.suggestion_meta;
   
   // Group suggestions by priority
   const highPriority = suggestions.filter(s => s.priority === 'high');
@@ -91,6 +92,21 @@ export default function SuggestionsTab({ data }) {
                       </View>
                     </View>
                   )}
+
+                  {/* Optional: Apply template action */}
+                  <View style={styles.actionsRow}>
+                    <Pressable
+                      style={styles.applyButton}
+                      onPress={() => {
+                        // Fire a lightweight event for parent to handle
+                        if (data && data.onApplySuggestion) {
+                          data.onApplySuggestion(suggestion);
+                        }
+                      }}
+                    >
+                      <Text style={styles.applyButtonText}>Apply template</Text>
+                    </Pressable>
+                  </View>
                 </View>
               )}
             </Pressable>
@@ -108,6 +124,19 @@ export default function SuggestionsTab({ data }) {
         <Text style={styles.headerSubtitle}>
           Actionable recommendations to enhance your prompt
         </Text>
+
+        {meta && (
+          <View style={styles.metaBox}>
+            <Text style={styles.metaTitle}>Why these suggestions?</Text>
+            <Text style={styles.metaText}>
+              {meta.prompt_type_icon ? meta.prompt_type_icon + ' ' : ''}
+              {meta.prompt_type_label || meta.prompt_type}
+            </Text>
+            {meta.reasoning ? (
+              <Text style={styles.metaReasoning}>{meta.reasoning}</Text>
+            ) : null}
+          </View>
+        )}
         
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
@@ -190,7 +219,32 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     color: '#64748b',
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  metaBox: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  metaTitle: {
+    fontSize: 12,
+    color: '#646cff',
+    fontWeight: '700',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  metaText: {
+    fontSize: 13,
+    color: '#334155',
+    marginBottom: 4,
+  },
+  metaReasoning: {
+    fontSize: 12,
+    color: '#64748b',
   },
   statsRow: {
     flexDirection: 'row',
@@ -343,5 +397,21 @@ const styles = StyleSheet.create({
     color: '#ccc',
     lineHeight: 18,
     fontFamily: 'monospace',
+  },
+  actionsRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  applyButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

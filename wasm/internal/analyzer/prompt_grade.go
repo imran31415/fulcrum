@@ -19,6 +19,7 @@ type PromptGrade struct {
 	ScopeManagement     GradeDimension   `json:"scope_management"`
 	OverallGrade        OverallGrade     `json:"overall_grade"`
 	Suggestions         []Suggestion     `json:"suggestions"`
+	SuggestionMeta      SuggestionMeta   `json:"suggestion_meta,omitempty"`
 	Strengths           []string         `json:"strengths"`
 	WeakAreas           []string         `json:"weak_areas"`
 }
@@ -58,6 +59,14 @@ type Suggestion struct {
 	Example     string `json:"example,omitempty"`
 }
 
+// SuggestionMeta provides context for why suggestions were generated
+type SuggestionMeta struct {
+	PromptType       string `json:"prompt_type"`
+	PromptTypeLabel  string `json:"prompt_type_label"`
+	PromptTypeIcon   string `json:"prompt_type_icon"`
+	Reasoning        string `json:"reasoning"`
+}
+
 // CalculatePromptGrade analyzes all metrics and generates a comprehensive grade
 func CalculatePromptGrade(
 	complexity ComplexityMetrics,
@@ -82,8 +91,18 @@ func CalculatePromptGrade(
 	// Calculate overall grade
 	grade.OverallGrade = calculateOverallGrade(grade)
 	
-	// Generate suggestions based on scores
-	grade.Suggestions = generateSuggestions(grade)
+	// Generate suggestions based on scores and context
+	grade.Suggestions = generateSuggestions(grade, text, tokens, ideas, taskGraph)
+
+	// Why these suggestions? Add meta context
+	classifier := NewPromptClassifier()
+	cls := classifier.ClassifyPrompt(text)
+	grade.SuggestionMeta = SuggestionMeta{
+		PromptType:      string(cls.PrimaryType),
+		PromptTypeLabel: GetPromptTypeDisplayName(cls.PrimaryType),
+		PromptTypeIcon:  GetPromptTypeIcon(cls.PrimaryType),
+		Reasoning:       cls.Reasoning,
+	}
 	
 	// Identify strengths and weak areas
 	grade.Strengths, grade.WeakAreas = identifyStrengthsAndWeaknesses(grade)
@@ -1110,127 +1129,81 @@ func calculateOverallGrade(grade *PromptGrade) OverallGrade {
 	}
 }
 
-// generateSuggestions creates actionable improvement suggestions
-func generateSuggestions(grade *PromptGrade) []Suggestion {
+// generateSuggestions creates actionable, context-aware improvement suggestions
+func generateSuggestions(grade *PromptGrade, text string, tokens TokenData, ideas IdeaAnalysisMetrics, taskGraph TaskGraph) []Suggestion {
 	suggestions := []Suggestion{}
-	
-	// Understandability suggestions
-	if grade.Understandability.Score < 60 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Understandability",
-			Priority:  "high",
-			Message:   "Simplify sentences - aim for 15-20 words per sentence",
-			Impact:    "Improve readability by 20-30 points",
-			Example:   "Break: 'The complex system that we need to implement...' Into: 'We need to implement a system. The system will...'",
-		})
-		if grade.Understandability.Score < 40 {
-			suggestions = append(suggestions, Suggestion{
-				Dimension: "Understandability",
-				Priority:  "high",
-				Message:   "Replace complex words with simpler alternatives",
-				Impact:    "Make prompt accessible to wider audience",
-			})
-		}
+	add := func(dim, prio, msg, impact, ex string) {
+		suggestions = append(suggestions, Suggestion{Dimension: dim, Priority: prio, Message: msg, Impact: impact, Example: ex})
 	}
-	
-	// Specificity suggestions
-	if grade.Specificity.Score < 70 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Specificity",
-			Priority:  "high",
-			Message:   "Replace pronouns (it, this, that) with specific nouns",
-			Impact:    "Reduce ambiguity by 15-25%",
-			Example:   "Change: 'Update it to handle this' To: 'Update the authentication system to handle OAuth tokens'",
-		})
+
+	// Classify prompt type to tailor suggestions
+	classifier := NewPromptClassifier()
+	pt := classifier.ClassifyPrompt(text).PrimaryType
+
+	// Common gaps across types
+	if grade.Specificity.Score < 72 {
+		add("Specificity", "high", "Specify exact inputs, outputs, and success criteria", "Reduces ambiguity and makes the response unambiguous", "Example: 'Input: JSON {id, name}. Output: CSV with columns user_id, status.'")
 	}
-	if grade.Specificity.Score < 50 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Specificity",
-			Priority:  "high",
-			Message:   "Add concrete examples to abstract concepts",
-			Impact:    "Improve clarity significantly",
-		})
-	}
-	
-	// Task complexity suggestions
-	if grade.TaskComplexity.Score > 70 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Task Complexity",
-			Priority:  "medium",
-			Message:   "Consider breaking this into multiple smaller prompts",
-			Impact:    "Reduce cognitive load and improve success rate",
-		})
-		if grade.TaskComplexity.Score > 80 {
-			suggestions = append(suggestions, Suggestion{
-				Dimension: "Task Complexity",
-				Priority:  "high",
-				Message:   "Reduce task dependencies by making some tasks independent",
-				Impact:    "Simplify execution path",
-			})
-		}
-	}
-	
-	// Clarity suggestions
-	if grade.Clarity.Score < 70 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Clarity",
-			Priority:  "medium",
-			Message:   "Ensure consistent verb tenses throughout",
-			Impact:    "Improve logical flow",
-		})
-	}
-	
-	// Actionability suggestions
 	if grade.Actionability.Score < 70 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Actionability",
-			Priority:  "high",
-			Message:   "Add more action verbs (create, analyze, implement, build)",
-			Impact:    "Make prompt more executable",
-			Example:   "Instead of: 'The system should have authentication' Use: 'Implement OAuth authentication in the system'",
-		})
+		add("Actionability", "high", "List concrete deliverables or step-by-step tasks", "Increases executability and alignment", "Example: 'Deliver: schema.sql, API spec (OpenAPI), unit tests, README with run steps.'")
 	}
-	
-	// Structure suggestions
-	if grade.StructureQuality.Score < 70 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Structure",
-			Priority:  "medium",
-			Message:   "Add transition words (first, then, next, finally) between sections",
-			Impact:    "Improve readability and flow",
-		})
+	if grade.StructureQuality.Score < 68 {
+		add("Structure", "medium", "Organize prompt into sections (Context, Requirements, Constraints, Deliverables)", "Improves readability and agent understanding", "Use bullet points and headings for each section.")
 	}
-	
-	// Context suggestions
-	if grade.ContextSufficiency.Score < 70 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Context",
-			Priority:  "low",
-			Message:   "Provide more background information and define technical terms",
-			Impact:    "Ensure complete understanding",
-		})
+	if grade.ContextSufficiency.Score < 68 {
+		add("Context", "medium", "Provide domain context, constraints, and environment details", "Improves relevance and feasibility of results", "Example: 'Runtime: Node.js 20; DB: Postgres 15; Hosting: AWS Lambda; p95 latency: 200ms.'")
 	}
-	
-	// Scope suggestions
-	if grade.ScopeManagement.Score < 60 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Scope",
-			Priority:  "medium",
-			Message:   "Narrow focus to core objectives",
-			Impact:    "Improve prompt effectiveness",
-		})
-	} else if grade.ScopeManagement.Score > 80 && grade.TaskComplexity.Score < 30 {
-		suggestions = append(suggestions, Suggestion{
-			Dimension: "Scope",
-			Priority:  "low",
-			Message:   "Consider adding more detail to broad tasks",
-			Impact:    "Provide better guidance",
-		})
+
+	// Type-specific rules
+	switch pt {
+	case TechnicalSpec, CodeGeneration:
+		// Security/infra suggestions when absent
+		if ideas.FactualContent.Value.TotalFacts < 2 && grade.ContextSufficiency.Score < 75 {
+			add("Context", "medium", "State non-functional requirements (security, performance, SLAs)", "Prevents rework and ensures completeness", "Example: 'Auth: OAuth2; Rate limit: 100 rps; Availability: 99.9%.'")
+		}
+		// Low named entities or interfaces -> request API/interface shapes
+		if len(tokens.SemanticFeatures.NamedEntities) < 2 || grade.Specificity.Score < 70 {
+			add("Specificity", "high", "Define interface shapes, schemas, or endpoint contracts", "Eliminates guesswork in implementation", "Example: 'POST /webhooks/order-created {id:string, amount:number, currency:string}'")
+		}
+		// Scope vs complexity
+		if grade.TaskComplexity.Score > 75 && grade.ScopeManagement.Score < 70 {
+			add("Scope", "high", "Split into phases or separate prompts", "Reduces cognitive load and improves quality", "Phase 1: ingestion; Phase 2: validation; Phase 3: persistence")
+		}
+		// Testing & observability
+		add("Quality", "medium", "Ask for tests, examples, and observability hooks", "Raises reliability and ease of maintenance", "Include unit tests, example payloads, and logging/metrics points.")
+
+	case DataAnalysis:
+		add("Data", "high", "List dataset fields, time window, and filters", "Enables targeted analysis and correct joins", "Columns: user_id, plan, mrr, events; Window: 2024-01..2024-12; Filter: active customers.")
+		add("Methodology", "medium", "Specify analysis methods and output artifacts", "Sets expectations and saves iteration time", "EDA + cohort + predictive (logit). Output: notebook, dashboard, executive summary.")
+		if ideas.QuestionAnalysis.Value.TotalQuestions > 0 && len(ideas.QuestionAnalysis.Value.Actionable) == 0 {
+			add("Clarity", "medium", "Convert open questions into specific analytical tasks", "Improves actionability and outcomes", "Example: 'Quantify churn uplift from onboarding email within 30 days.'")
+		}
+
+	case CreativeTask, Writing:
+		add("Brief", "high", "Define audience, tone, style, and 'do/don't' lists", "Aligns creative output with brand and goals", "Audience: SMB founders; Tone: practical; Do: concise; Don't: clichés.")
+		add("Examples", "medium", "Provide 2-3 reference examples or links", "Guides taste and reduces revisions", "Reference: 'Basecamp marketing tone', 'Stripe docs voice'.")
+
+	case Learning:
+		add("Objectives", "high", "Set explicit learning objectives and timeline", "Ensures scope matches learning goals", "Objective: build ML model; Timeline: 4 weeks; Hours: 10/wk")
+		add("Format", "medium", "Request step-by-step curriculum with exercises and assessments", "Makes learning practical and measurable", "Each topic: 15-min theory, code demo, 1 exercise, quiz.")
+
+	default: // General / ProblemSolving
+		add("Clarification", "high", "Add 3-5 clarifying questions the model should answer before proceeding", "Avoids misinterpretation and rework", "Example questions: constraints, success criteria, examples, dependencies.")
 	}
-	
-	// Sort suggestions by priority
-	// High priority first, then medium, then low
-	priorityOrder := map[string]int{"high": 0, "medium": 1, "low": 2}
+
+	// Additional signals-driven suggestions
+	if tokens.TokenCounts.Words > 0 {
+		pronouns := len(tokens.PartOfSpeech.Pronouns)
+		if float64(pronouns)/float64(tokens.TokenCounts.Words) > 0.05 {
+			add("Specificity", "medium", "Replace pronouns (it/this/that) with specific nouns", "Reduces ambiguity in references", "'Update it' -> 'Update the authentication service'.")
+		}
+	}
+	if taskGraph.TotalTasks == 0 && (pt == TechnicalSpec || pt == CodeGeneration) {
+		add("Actionability", "medium", "Ask the model to extract a task list first", "Creates a clear execution plan", "'List tasks with estimates and dependencies before implementation.'")
+	}
+
+	// Sort by priority and trim
+	priorityOrder := map[string]int{"critical": 0, "high": 1, "medium": 2, "low": 3}
 	for i := 0; i < len(suggestions); i++ {
 		for j := i + 1; j < len(suggestions); j++ {
 			if priorityOrder[suggestions[i].Priority] > priorityOrder[suggestions[j].Priority] {
@@ -1238,13 +1211,19 @@ func generateSuggestions(grade *PromptGrade) []Suggestion {
 			}
 		}
 	}
-	
-	// Limit to top 5 suggestions
-	if len(suggestions) > 5 {
-		suggestions = suggestions[:5]
+	// Deduplicate by message
+	seen := map[string]bool{}
+	uniq := []Suggestion{}
+	for _, s := range suggestions {
+		if !seen[s.Message] {
+			uniq = append(uniq, s)
+			seen[s.Message] = true
+		}
 	}
-	
-	return suggestions
+	if len(uniq) > 6 {
+		uniq = uniq[:6]
+	}
+	return uniq
 }
 
 // identifyStrengthsAndWeaknesses analyzes the grades to find strong and weak areas
