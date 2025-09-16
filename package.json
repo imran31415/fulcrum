@@ -1,18 +1,22 @@
 {
   "name": "fulcrum",
   "version": "1.0.0",
-  "description": "A comprehensive Go service for deep text analysis that provides extensive preprocessing, tokenization, and complexity analysis capabilities.",
   "main": "index.js",
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug",
-    "test:report": "playwright show-report"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "wasm:build": "bash ./wasm/build.sh"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@playwright/test": "^1.55.0"
-  }
+  "dependencies": {
+    "expo": "~54.0.7",
+    "expo-status-bar": "~3.0.8",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-web": "^0.21.0",
+    "react-native-webview": "13.15.0"
+  },
+  "private": true
 }
