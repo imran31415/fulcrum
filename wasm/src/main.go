@@ -107,7 +107,7 @@ func processText(this js.Value, args []js.Value) interface{} {
 		taskGraphDur := taskGraphTimer.Stop()
 		
 		// Debug logging
-		fmt.Printf("DEBUG: TaskGraph extracted - Total tasks: %d\n", taskGraph.TotalTasks)
+		fmt.Printf("DEBUG: TaskGraph parsed - Total tasks: %d\n", taskGraph.TotalTasks)
 		if taskGraph.TotalTasks > 0 {
 			fmt.Printf("DEBUG: First task: %s\n", taskGraph.Tasks[0].Title)
 		}

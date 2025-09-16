@@ -39,3 +39,12 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Kubernetes secrets and sensitive configs
+k8/*secret*.yaml
+k8/*secret*.yml
+*.env
+*.env.*
+!*.env.example
+config/secrets/
+secrets/

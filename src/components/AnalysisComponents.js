@@ -122,8 +122,8 @@ export const EnhancedResultDisplay = ({ data }) => {
       priority: 9
     },
     {
-      keys: ['extraction_results', 'extracted', 'entities'],
-      title: 'Information Extraction',
+      keys: ['analysis_results', 'parsed_data', 'entities'],
+      title: 'Information Analysis',
       emoji: '🎯',
       priority: 10
     },
