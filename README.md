@@ -1,36 +1,71 @@
 # Fulcrum Text Analysis Service
 
-A comprehensive backendless (using WASM + go + react-native) service for deep text analysis that provides extensive preprocessing, tokenization, and complexity analysis capabilities.  Useful for LLM preprocessing or breaking down text into categorized pieces. 
+## 🚀 Architecture Overview
 
-Demo: https:/fulcrum.scalebase.io
+Fulcrum is a **truly backendless** text analysis service built with a modern, innovative architecture:
 
-Screenshots:
+- **🦀 Go Backend**: High-performance text analysis engine written in Go
+- **🌐 WebAssembly (WASM)**: Go compiled to WASM for browser execution
+- **📱 React Native**: Cross-platform mobile interface
+- **☁️ Serverless**: Runs entirely in the browser/mobile app - no servers needed!
 
-### Text input with some example prompts:
-<img width="1048" height="516" alt="image" src="https://github.com/user-attachments/assets/8b454e84-0943-4dcd-ad0d-c4f2561947f9" />
+This unique architecture enables **zero-infrastructure deployment** while maintaining the performance of native Go code. Perfect for privacy-sensitive text analysis where data never leaves the client.
 
-###  Output Tasks with comprehensive metrics 
-<img width="332" height="468" alt="image" src="https://github.com/user-attachments/assets/bb17215a-045f-41de-9f63-e4ea45d995c7" />
+**🎯 [Live Demo](https://fulcrum.scalebase.io)**
 
-### More insights: 
-<img width="343" height="679" alt="image" src="https://github.com/user-attachments/assets/a669da95-152f-481b-8fcf-92f683db8c52" />
+---
 
-### And more:
-<img width="245" height="478" alt="image" src="https://github.com/user-attachments/assets/edc62384-5a6e-4a1d-b7c4-17c268feba41" />
+## 📸 Screenshots
 
-### Raw json of course: 
-<img width="269" height="83" alt="image" src="https://github.com/user-attachments/assets/d59c97cc-70a1-49a7-9707-5d61381445b7" />
+<details>
+<summary>Click to view app screenshots</summary>
+
+### 🎯 Text Input with Example Prompts
+<img width="1048" height="516" alt="Text input interface with example prompts" src="https://github.com/user-attachments/assets/8b454e84-0943-4dcd-ad0d-c4f2561947f9" />
+
+---
+
+### 📊 Comprehensive Analysis Output
+<img width="332" height="468" alt="Analysis output with detailed metrics" src="https://github.com/user-attachments/assets/bb17215a-045f-41de-9f63-e4ea45d995c7" />
+
+---
+
+### 🔍 Detailed Insights
+<img width="343" height="679" alt="Detailed text analysis insights" src="https://github.com/user-attachments/assets/a669da95-152f-481b-8fcf-92f683db8c52" />
+
+---
+
+### 📈 Additional Metrics
+<img width="245" height="478" alt="Additional analysis metrics" src="https://github.com/user-attachments/assets/edc62384-5a6e-4a1d-b7c4-17c268feba41" />
+
+---
+
+### 🔧 Raw JSON Output
+<img width="269" height="83" alt="Raw JSON analysis output" src="https://github.com/user-attachments/assets/d59c97cc-70a1-49a7-9707-5d61381445b7" />
+
+</details>
 
 
 
-## Features
+## 🌟 Key Features
 
+### 🔒 Privacy-First Architecture
+- **Client-Side Processing**: All analysis happens in your browser/device
+- **Zero Data Transmission**: Your text never leaves your machine
+- **No Server Dependencies**: Works offline after initial load
+
+### 📈 Comprehensive Text Analysis
 - **Text Complexity Analysis**: Multiple readability metrics including Flesch-Kincaid, Gunning Fog Index, SMOG, and more
 - **Advanced Tokenization**: Comprehensive token extraction with n-gram generation and part-of-speech analysis
 - **Text Preprocessing**: Full text cleaning, normalization, stemming, and lemmatization
 - **Language Detection**: Automatic language identification with confidence scores
 - **Quality Assessment**: Spelling, grammar, and style analysis
 - **Named Entity Recognition**: Extraction of entities, URLs, emails, and other structured data
+
+### ⚡ Performance Benefits
+- **Native Go Speed**: WASM compilation retains Go's performance characteristics
+- **Cross-Platform**: Runs on web browsers, React Native apps, and Node.js
+- **Lightweight**: No server infrastructure or API calls required
 
 ## Quick Start
 
@@ -132,21 +167,48 @@ Returns service health status.
 - Quality assessment with spelling and grammar checks
 - Information extraction (URLs, emails, dates, etc.)
 
-## Development
+## 🚀 Development
 
-### Project Structure
+### 🏧 Architecture Components
+
+#### Go Backend Engine
 ```
 fulcrum/
-├── main.go                          # HTTP server and API endpoints
+├── main.go                          # HTTP server and WASM entry points
 ├── internal/analyzer/
 │   ├── complexity.go               # Text complexity analysis
 │   ├── tokenizer.go               # Tokenization and linguistic analysis
 │   └── preprocessor.go            # Text preprocessing and cleaning
-└── README.md
+└── wasm/
+    ├── main.go                      # WASM-specific bindings
+    └── wasm_exec.js                 # Go WASM runtime
 ```
 
-### Dependencies
-This service uses only Go standard library packages, making it lightweight and easy to deploy.
+#### Building for Different Platforms
+
+**Traditional HTTP Server:**
+```bash
+go build -o fulcrum
+./fulcrum
+```
+
+**WebAssembly Build:**
+```bash
+GOOS=js GOOS=wasm go build -o fulcrum.wasm main.go
+```
+
+**React Native Integration:**
+```javascript
+// Load WASM module in React Native
+import { loadWASM } from './wasm-loader';
+const analyzer = await loadWASM('fulcrum.wasm');
+```
+
+### 📦 Dependencies
+This service uses only Go standard library packages, making it:
+- **Lightweight**: Minimal dependencies
+- **Portable**: Easy WASM compilation
+- **Secure**: No external dependencies to audit
 
 ## License
 
