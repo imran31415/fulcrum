@@ -22,7 +22,9 @@ import TaskGraph from './components/TaskGraph';
 import PromptGradeTab from './src/components/PromptGradeTab';
 import SuggestionsTab from './src/components/SuggestionsTab';
 import LoadingProgress from './src/components/LoadingProgress';
+import CompactLoadingProgress from './src/components/CompactLoadingProgress';
 import MarkdownTextInput from './src/components/MarkdownTextInput';
+import DragDivider from './src/components/DragDivider';
 // Ensure the native WebView module is installed (for iOS/Android):
 //   expo install react-native-webview
 
@@ -39,7 +41,12 @@ export default function App() {
   const [showExamples, setShowExamples] = useState(false);
   const [useEnhancedEditor, setUseEnhancedEditor] = useState(true); // Default to enhanced editor
   const [showTabSelector, setShowTabSelector] = useState(false);
+  const [showUtilityMenu, setShowUtilityMenu] = useState(false);
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+  // State for draggable pane widths
+  const [leftPaneWidth, setLeftPaneWidth] = useState(0.35); // Default to 35% as it was before
+  const [isDragging, setIsDragging] = useState(false);
+  const [initialLeftPaneWidth, setInitialLeftPaneWidth] = useState(0.35);
 
   const examplePrompts = [
     {
@@ -234,12 +241,38 @@ export default function App() {
     return tabs;
   };
 
+  // Drag handling logic
+  const handleDrag = (deltaX, isDragEnd = false, isDragStart = false) => {
+    if (isDragStart) {
+      setIsDragging(true);
+      setInitialLeftPaneWidth(leftPaneWidth);
+      return;
+    }
+    
+    if (isDragEnd) {
+      setIsDragging(false);
+      return;
+    }
+    
+    if (deltaX !== null) {
+      // Calculate new width as percentage of screen width
+      const deltaPercentage = deltaX / screenWidth;
+      let newLeftPaneWidth = initialLeftPaneWidth + deltaPercentage;
+      
+      // Constrain to reasonable bounds (20% to 70%)
+      newLeftPaneWidth = Math.max(0.2, Math.min(0.7, newLeftPaneWidth));
+      
+      setLeftPaneWidth(newLeftPaneWidth);
+    }
+  };
+
   const availableTabs = getAvailableTabs();
   const isNarrowScreen = screenWidth < 768; // Consider screens under 768px as narrow
+  const isWideScreen = screenWidth >= 1024; // IDE mode for screens 1024px and wider (reduced threshold)
+  const isWebPlatform = Platform.OS === 'web';
 
   return (
     <SafeAreaView style={styles.safe}>
-      <LoadingProgress isAnalyzing={isAnalyzing} promptText={input} />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         {/* Mount native WebView bridge invisibly on iOS/Android */}
         {Platform.OS !== 'web' ? <WasmProvider /> : null}
@@ -251,10 +284,18 @@ export default function App() {
             <View style={styles.statusRow}>
               <View style={[styles.statusDot, ready ? styles.statusDotReady : styles.statusDotInit]} />
               <Text style={styles.statusText}>{ready ? 'WASM ready' : 'Initializing'}</Text>
+              {isWideScreen && isWebPlatform && (
+                <Text style={styles.ideMode}>IDE Mode</Text>
+              )}
             </View>
           </View>
 
-          {/* Input Section with Enhanced Design */}
+          {/* IDE Layout for Wide Screens */}
+          {isWideScreen && isWebPlatform ? (
+            <View style={styles.ideLayout}>
+              {/* Left Pane - Input and Controls */}
+              <View style={[styles.leftPane, { width: `${leftPaneWidth * 100}%` }]}>
+                {/* Input Section with Enhanced Design */}
           <View style={styles.inputSection}>
             <View style={styles.inputHeader}>
               <View style={styles.inputLabelContainer}>
@@ -281,44 +322,6 @@ export default function App() {
               </View>
             </View>
             
-            {/* Example Prompts */}
-            {showExamples && (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={styles.examplesContainer}
-                contentContainerStyle={styles.examplesContent}
-              >
-                {examplePrompts.map((example, idx) => (
-                  <Pressable
-                    key={idx}
-                    style={[
-                      styles.exampleCard,
-                      example.category === 'complex' && styles.exampleCardComplex,
-                      example.category === 'medium' && styles.exampleCardMedium,
-                    ]}
-                    onPress={() => {
-                      setInput(example.text);
-                      setShowExamples(false);
-                    }}
-                  >
-                    <Text style={styles.exampleTitle}>{example.title}</Text>
-                    <Text style={styles.examplePreview} numberOfLines={2}>
-                      {example.text}
-                    </Text>
-                    <View style={[
-                      styles.exampleBadge,
-                      example.category === 'complex' && styles.exampleBadgeComplex,
-                      example.category === 'medium' && styles.exampleBadgeMedium,
-                    ]}>
-                      <Text style={styles.exampleBadgeText}>
-                        {example.category.toUpperCase()}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
             
             {useEnhancedEditor ? (
               <View style={styles.enhancedEditorWrapper}>
@@ -353,122 +356,338 @@ export default function App() {
                 </View>
               </View>
             )}
-          </View>
+                </View>
 
-          {/* Actions */}
-          <View style={styles.row}>
-            <Pressable style={styles.btn} onPress={() => run('uppercase')} disabled={!ready || isAnalyzing}>
-              <Text style={styles.btnText}>Uppercase</Text>
-            </Pressable>
-            <Pressable style={styles.btn} onPress={() => run('lowercase')} disabled={!ready || isAnalyzing}>
-              <Text style={styles.btnText}>Lowercase</Text>
-            </Pressable>
-            <Pressable style={styles.btn} onPress={() => run('wordcount')} disabled={!ready || isAnalyzing}>
-              <Text style={styles.btnText}>Wordcount</Text>
-            </Pressable>
-            <Pressable 
-              style={[styles.btnPrimary, isAnalyzing && styles.btnPrimaryAnalyzing]} 
-              onPress={() => {
-                if (!isAnalyzing && ready) {
-                  // Immediate feedback
-                  setIsAnalyzing(true);
-                  // Run analysis after state update
-                  setTimeout(() => run('analyze'), 10);
-                }
-              }} 
-              disabled={!ready || isAnalyzing}
-            >
-              <Text style={styles.btnPrimaryText}>{isAnalyzing ? 'Analyzing...' : 'Analyze'}</Text>
-            </Pressable>
-          </View>
-
-          {/* Error */}
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
-
-          {/* Output */}
-          <View style={styles.outputHeader}>
-            <Text style={styles.sectionLabel}>Result</Text>
-            {parsedResult && parsedResult.performance_metrics && (
-              <PerformanceCompact performanceData={parsedResult.performance_metrics} />
-            )}
-          </View>
-          
-          {/* Tab Navigation - Only show for analyze operation */}
-          {parsedResult && parsedResult.complexity_metrics && (
-            <View style={styles.tabContainer}>
-              {isNarrowScreen ? (
-                // Mobile: Show gear icon with bottom sheet
-                <View style={styles.mobileTabContainer}>
-                  <Text style={styles.currentTabLabel}>
-                    {availableTabs.find(tab => tab.key === activeTab)?.label || 'Analysis'}
-                  </Text>
+                {/* Primary Action - Only Analyze button */}
+                <View style={styles.primaryActionContainer}>
                   <Pressable 
-                    style={styles.moreAnalysisButton}
-                    onPress={() => setShowTabSelector(true)}
+                    style={[styles.analyzeButton, isAnalyzing && styles.analyzeButtonDisabled]} 
+                    onPress={() => {
+                      if (!isAnalyzing && ready) {
+                        setIsAnalyzing(true);
+                        setTimeout(() => run('analyze'), 10);
+                      }
+                    }} 
+                    disabled={!ready || isAnalyzing}
                   >
-                    <Text style={styles.gearIcon}>⚙️</Text>
-                    <Text style={styles.moreAnalysisText}>More analysis</Text>
+                    <Text style={styles.analyzeButtonText}>{isAnalyzing ? 'Analyzing...' : 'Analyze Text'}</Text>
+                  </Pressable>
+                  
+                  {/* Utility Actions Menu */}
+                  <Pressable 
+                    style={styles.utilityMenuButton}
+                    onPress={() => setShowUtilityMenu(!showUtilityMenu)}
+                  >
+                    <Text style={styles.utilityMenuIcon}>⋯</Text>
                   </Pressable>
                 </View>
-              ) : (
-                // Desktop: Show all tabs in ScrollView
-                <ScrollView 
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.tabScrollContent}
-                >
-                  {availableTabs.map((tab) => (
+                
+                {/* Utility Menu Dropdown */}
+                {showUtilityMenu && (
+                  <View style={styles.utilityMenu}>
                     <Pressable 
-                      key={tab.key}
-                      style={[styles.simpleTab, activeTab === tab.key && styles.simpleActiveTab]}
-                      onPress={() => setActiveTab(tab.key)}
+                      style={styles.utilityMenuItem} 
+                      onPress={() => {
+                        run('uppercase');
+                        setShowUtilityMenu(false);
+                      }} 
+                      disabled={!ready || isAnalyzing}
                     >
-                      <Text style={[styles.simpleTabText, activeTab === tab.key && styles.simpleActiveTabText]}>
-                        {tab.label}
+                      <Text style={styles.utilityMenuItemText}>📝 Uppercase</Text>
+                    </Pressable>
+                    <Pressable 
+                      style={styles.utilityMenuItem} 
+                      onPress={() => {
+                        run('lowercase');
+                        setShowUtilityMenu(false);
+                      }} 
+                      disabled={!ready || isAnalyzing}
+                    >
+                      <Text style={styles.utilityMenuItemText}>🔤 Lowercase</Text>
+                    </Pressable>
+                    <Pressable 
+                      style={styles.utilityMenuItem} 
+                      onPress={() => {
+                        run('wordcount');
+                        setShowUtilityMenu(false);
+                      }} 
+                      disabled={!ready || isAnalyzing}
+                    >
+                      <Text style={styles.utilityMenuItemText}>📊 Word Count</Text>
+                    </Pressable>
+                  </View>
+                )}
+
+                {/* Error */}
+                {error ? (
+                  <View style={styles.errorBox}>
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                ) : null}
+              </View>
+              
+              {/* Draggable Divider */}
+              <DragDivider 
+                onDrag={handleDrag} 
+                isDragging={isDragging}
+              />
+              
+              {/* Right Pane - Analysis Results */}
+              <View style={[styles.rightPane, { width: `${(1 - leftPaneWidth) * 100}%` }]}>
+                <View style={styles.rightPaneHeader}>
+                  <Text style={styles.rightPaneTitle}>Analysis Results</Text>
+                  {parsedResult && parsedResult.performance_metrics && (
+                    <PerformanceCompact performanceData={parsedResult.performance_metrics} />
+                  )}
+                </View>
+                
+                {/* Always show analysis results in right pane */}
+                {result && parsedResult && parsedResult.complexity_metrics ? (
+                  <View style={styles.analysisContent}>
+                    {/* Tab selector for right pane */}
+                    <View style={styles.rightPaneTabs}>
+                      {availableTabs.map((tab) => (
+                        <Pressable 
+                          key={tab.key}
+                          style={[styles.rightPaneTab, activeTab === tab.key && styles.rightPaneActiveTab]}
+                          onPress={() => setActiveTab(tab.key)}
+                        >
+                          <Text style={styles.rightPaneTabIcon}>{tab.icon}</Text>
+                          <Text style={[styles.rightPaneTabText, activeTab === tab.key && styles.rightPaneActiveTabText]}>
+                            {tab.label.replace(/📊|💡|🎯|🔍|🔧/g, '').trim()}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    
+                    {/* Tab content */}
+                    <View style={styles.rightPaneContent}>
+                      {isAnalyzing && (
+                        <View style={styles.rightPaneLoadingOverlay}>
+                          <CompactLoadingProgress isAnalyzing={isAnalyzing} promptText={input} />
+                        </View>
+                      )}
+                      {activeTab === 'promptgrade' ? (
+                        <PromptGradeTab data={parsedResult} />
+                      ) : activeTab === 'suggestions' ? (
+                        <SuggestionsTab data={parsedResult} />
+                      ) : activeTab === 'taskgraph' ? (
+                        parsedResult.task_graph ? (
+                          <TaskGraph taskGraphData={parsedResult.task_graph} />
+                        ) : (
+                          <View style={styles.noData}>
+                            <Text style={styles.noDataText}>No task graph data available</Text>
+                          </View>
+                        )
+                      ) : activeTab === 'insights' ? (
+                        <InsightsTab data={parsedResult} />
+                      ) : activeTab === 'metrics' ? (
+                        <EnhancedResultDisplay data={parsedResult} />
+                      ) : activeTab === 'raw' ? (
+                        <ScrollView style={styles.rawContent}>
+                          <Text selectable style={styles.rawText}>{result}</Text>
+                        </ScrollView>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : result ? (
+                  <View style={styles.simpleResult}>
+                    <Text style={styles.simpleResultText}>{result}</Text>
+                  </View>
+                ) : (
+                  <View style={styles.emptyResults}>
+                    <Text style={styles.emptyResultsText}>Run analysis to see results</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          ) : (
+            // Non-IDE layout for smaller screens
+            <>
+              {/* Input Section with Enhanced Design */}
+              <View style={styles.inputSection}>
+                <View style={styles.inputHeader}>
+                  <View style={styles.inputLabelContainer}>
+                    <Text style={styles.sectionLabel}>Text Analysis Input</Text>
+                    <Text style={styles.inputSubtitle}>Enter text to analyze for tasks, complexity, and insights</Text>
+                  </View>
+                  <View style={styles.inputHeaderButtons}>
+                    <Pressable
+                      style={styles.headerButton}
+                      onPress={() => setUseEnhancedEditor(!useEnhancedEditor)}
+                    >
+                      <Text style={styles.headerButtonText}>
+                        {useEnhancedEditor ? '📝 Simple' : '✨ Enhanced'}
                       </Text>
                     </Pressable>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-          )}
-          
-          {/* Tab Content */}
-          {result ? (
-            parsedResult && parsedResult.complexity_metrics ? (
-              // Analysis results with tabs
-              activeTab === 'promptgrade' ? (
-                <PromptGradeTab data={parsedResult} />
-              ) : activeTab === 'suggestions' ? (
-                <SuggestionsTab data={parsedResult} />
-              ) : activeTab === 'taskgraph' ? (
-                parsedResult.task_graph ? (
-                  <TaskGraph taskGraphData={parsedResult.task_graph} />
-                ) : (
-                  <View style={styles.output}>
-                    <Text style={styles.code}>No task graph data available. Tasks found: {parsedResult.task_graph?.total_tasks || 0}</Text>
+                    <Pressable
+                      style={styles.headerButton}
+                      onPress={() => setShowExamples(!showExamples)}
+                    >
+                      <Text style={styles.headerButtonText}>
+                        {showExamples ? '✕ Close' : '💡 Examples'}
+                      </Text>
+                    </Pressable>
                   </View>
-                )
-              ) : activeTab === 'insights' ? (
-                <InsightsTab data={parsedResult} />
-              ) : activeTab === 'metrics' ? (
-                <EnhancedResultDisplay data={parsedResult} />
-              ) : activeTab === 'raw' ? (
-                <ScrollView style={styles.output} contentContainerStyle={styles.outputContent}>
-                  <Text selectable style={styles.code}>{result}</Text>
-                </ScrollView>
-              ) : null
-            ) : (
-              // Simple text results (uppercase, lowercase, wordcount)
-              <View style={styles.simpleResultContainer}>
-                <Text style={styles.simpleResultText}>{result}</Text>
+                </View>
+                
+                
+                {useEnhancedEditor ? (
+                  <View style={styles.enhancedEditorWrapper}>
+                    <MarkdownTextInput
+                      value={input}
+                      onChangeText={setInput}
+                      placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      multiline
+                      value={input}
+                      onChangeText={setInput}
+                      placeholder="Type or paste your text here...\n\nTry describing a workflow, project plan, or any text with sequential tasks."
+                      placeholderTextColor="#94a3b8"
+                    />
+                    <View style={styles.inputFooter}>
+                      <Text style={styles.charCount}>
+                        {input.length} characters • {input.split(' ').filter(w => w).length} words
+                      </Text>
+                      {input.length > 0 && (
+                        <Pressable
+                          style={styles.clearButton}
+                          onPress={() => setInput('')}
+                        >
+                          <Text style={styles.clearButtonText}>Clear</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  </View>
+                )}
               </View>
-            )
-          ) : null}
+
+              {/* Actions */}
+              <View style={styles.row}>
+                <Pressable style={styles.btn} onPress={() => run('uppercase')} disabled={!ready || isAnalyzing}>
+                  <Text style={styles.btnText}>Uppercase</Text>
+                </Pressable>
+                <Pressable style={styles.btn} onPress={() => run('lowercase')} disabled={!ready || isAnalyzing}>
+                  <Text style={styles.btnText}>Lowercase</Text>
+                </Pressable>
+                <Pressable style={styles.btn} onPress={() => run('wordcount')} disabled={!ready || isAnalyzing}>
+                  <Text style={styles.btnText}>Wordcount</Text>
+                </Pressable>
+                <Pressable 
+                  style={[styles.btnPrimary, isAnalyzing && styles.btnPrimaryAnalyzing]} 
+                  onPress={() => {
+                    if (!isAnalyzing && ready) {
+                      setIsAnalyzing(true);
+                      setTimeout(() => run('analyze'), 10);
+                    }
+                  }} 
+                  disabled={!ready || isAnalyzing}
+                >
+                  <Text style={styles.btnPrimaryText}>{isAnalyzing ? 'Analyzing...' : 'Analyze'}</Text>
+                </Pressable>
+              </View>
+
+              {/* Error */}
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              {/* Output */}
+              <View style={styles.outputHeader}>
+                <Text style={styles.sectionLabel}>Result</Text>
+                {parsedResult && parsedResult.performance_metrics && (
+                  <PerformanceCompact performanceData={parsedResult.performance_metrics} />
+                )}
+              </View>
+              
+              {/* Tab Navigation - Only show for analyze operation */}
+              {parsedResult && parsedResult.complexity_metrics && (
+                <View style={styles.tabContainer}>
+                  {isNarrowScreen ? (
+                    // Mobile: Show gear icon with bottom sheet
+                    <View style={styles.mobileTabContainer}>
+                      <Text style={styles.currentTabLabel}>
+                        {availableTabs.find(tab => tab.key === activeTab)?.label || 'Analysis'}
+                      </Text>
+                      <Pressable 
+                        style={styles.moreAnalysisButton}
+                        onPress={() => setShowTabSelector(true)}
+                      >
+                        <Text style={styles.gearIcon}>⚙️</Text>
+                        <Text style={styles.moreAnalysisText}>More analysis</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    // Desktop: Show all tabs in ScrollView
+                    <ScrollView 
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.tabScrollContent}
+                    >
+                      {availableTabs.map((tab) => (
+                        <Pressable 
+                          key={tab.key}
+                          style={[styles.simpleTab, activeTab === tab.key && styles.simpleActiveTab]}
+                          onPress={() => setActiveTab(tab.key)}
+                        >
+                          <Text style={[styles.simpleTabText, activeTab === tab.key && styles.simpleActiveTabText]}>
+                            {tab.label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              )}
+              
+              {/* Tab Content */}
+              <View style={styles.nonIdeResultsContainer}>
+                {isAnalyzing && (
+                  <View style={styles.nonIdeLoadingOverlay}>
+                    <CompactLoadingProgress isAnalyzing={isAnalyzing} promptText={input} />
+                  </View>
+                )}
+                {result ? (
+                  parsedResult && parsedResult.complexity_metrics ? (
+                    // Analysis results with tabs
+                    activeTab === 'promptgrade' ? (
+                      <PromptGradeTab data={parsedResult} />
+                    ) : activeTab === 'suggestions' ? (
+                      <SuggestionsTab data={parsedResult} />
+                    ) : activeTab === 'taskgraph' ? (
+                      parsedResult.task_graph ? (
+                        <TaskGraph taskGraphData={parsedResult.task_graph} />
+                      ) : (
+                        <View style={styles.output}>
+                          <Text style={styles.code}>No task graph data available. Tasks found: {parsedResult.task_graph?.total_tasks || 0}</Text>
+                        </View>
+                      )
+                    ) : activeTab === 'insights' ? (
+                      <InsightsTab data={parsedResult} />
+                    ) : activeTab === 'metrics' ? (
+                      <EnhancedResultDisplay data={parsedResult} />
+                    ) : activeTab === 'raw' ? (
+                      <ScrollView style={styles.output} contentContainerStyle={styles.outputContent}>
+                        <Text selectable style={styles.code}>{result}</Text>
+                      </ScrollView>
+                    ) : null
+                  ) : (
+                    // Simple text results (uppercase, lowercase, wordcount)
+                    <View style={styles.simpleResultContainer}>
+                      <Text style={styles.simpleResultText}>{result}</Text>
+                    </View>
+                  )
+                ) : null}
+              </View>
+            </>
+          )}
 
           <Text style={styles.footer}>Made with Go + WASM</Text>
         </View>
@@ -528,6 +747,75 @@ export default function App() {
           </View>
         </View>
       </Modal>
+
+      {/* Examples Modal */}
+      <Modal
+        visible={showExamples}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowExamples(false)}
+      >
+        <View style={styles.examplesModalOverlay}>
+          <Pressable 
+            style={styles.examplesModalBackground} 
+            onPress={() => setShowExamples(false)}
+          />
+          <View style={styles.examplesModal}>
+            <View style={styles.examplesModalHeader}>
+              <Text style={styles.examplesModalTitle}>Example Prompts</Text>
+              <Pressable 
+                style={styles.closeButton}
+                onPress={() => setShowExamples(false)}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </Pressable>
+            </View>
+            
+            <ScrollView style={styles.examplesModalContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.examplesModalSubtitle}>
+                Select a pre-written prompt to get started quickly
+              </Text>
+              
+              {examplePrompts.map((example, idx) => (
+                <Pressable
+                  key={idx}
+                  style={[
+                    styles.exampleModalCard,
+                    example.category === 'complex' && styles.exampleModalCardComplex,
+                    example.category === 'medium' && styles.exampleModalCardMedium,
+                  ]}
+                  onPress={() => {
+                    setInput(example.text);
+                    setShowExamples(false);
+                  }}
+                >
+                  <View style={styles.exampleModalCardHeader}>
+                    <Text style={styles.exampleModalTitle}>{example.title}</Text>
+                    <View style={[
+                      styles.exampleModalBadge,
+                      example.category === 'complex' && styles.exampleModalBadgeComplex,
+                      example.category === 'medium' && styles.exampleModalBadgeMedium,
+                    ]}>
+                      <Text style={styles.exampleModalBadgeText}>
+                        {example.category.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.exampleModalPreview} numberOfLines={3}>
+                    {example.text}
+                  </Text>
+                  <View style={styles.exampleModalFooter}>
+                    <Text style={styles.exampleModalWordCount}>
+                      {example.text.split(' ').length} words
+                    </Text>
+                    <Text style={styles.exampleModalAction}>Tap to use →</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -543,13 +831,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8, // Reduced padding for more screen space
     paddingTop: 8,
     paddingBottom: 20,
   },
   content: {
     width: '100%',
-    maxWidth: 920,
+    maxWidth: 1600, // Increased for better wide screen support
     alignSelf: 'center',
   },
   header: {
@@ -720,6 +1008,7 @@ const styles = StyleSheet.create({
   enhancedEditorWrapper: {
     width: '100%',
     flex: 1,
+    minHeight: 300,
   },
   outputHeader: {
     flexDirection: 'row',
@@ -874,6 +1163,366 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#2563eb',
     fontWeight: '600',
+  },
+  // IDE Layout styles
+  ideMode: {
+    fontSize: 10,
+    color: '#22c55e',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  ideLayout: {
+    flexDirection: 'row',
+    flex: 1,
+    alignItems: 'stretch',
+    minHeight: 600,
+    maxWidth: '100%', // Ensure full width usage
+  },
+  leftPane: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    overflow: 'visible', // Allow utility menu to show outside
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    position: 'relative',
+    marginRight: 4, // Small margin for the divider
+  },
+  rightPane: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    display: 'flex',
+    flexDirection: 'column',
+    marginLeft: 4, // Small margin for the divider
+  },
+  rightPaneHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#f8fafc',
+  },
+  rightPaneTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  analysisContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  rightPaneTabs: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#fafafa',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  rightPaneTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+  },
+  rightPaneActiveTab: {
+    backgroundColor: '#2563eb',
+  },
+  rightPaneTabIcon: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  rightPaneTabText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  rightPaneActiveTabText: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  rightPaneContent: {
+    flex: 1,
+  },
+  emptyResults: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyResultsText: {
+    fontSize: 16,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+  simpleResult: {
+    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    margin: 16,
+    borderRadius: 8,
+  },
+  noData: {
+    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#94a3b8',
+  },
+  rawContent: {
+    flex: 1,
+    padding: 16,
+  },
+  rawText: {
+    fontSize: 12,
+    color: '#0f172a',
+    fontFamily: Platform.select({
+      ios: 'Menlo',
+      android: 'monospace',
+      default: 'monospace',
+    }),
+    lineHeight: 18,
+  },
+  // IDE Action Styles
+  primaryActionContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    backgroundColor: '#f8fafc',
+  },
+  analyzeButton: {
+    flex: 1,
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    shadowColor: '#2563eb',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  analyzeButtonDisabled: {
+    backgroundColor: '#94a3b8',
+    opacity: 0.8,
+  },
+  analyzeButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  utilityMenuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  utilityMenuIcon: {
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: 'bold',
+  },
+  utilityMenu: {
+    position: 'absolute',
+    right: 16,
+    bottom: 60,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 150,
+    zIndex: 1000,
+  },
+  utilityMenuItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  utilityMenuItemText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  // Examples Modal Styles
+  examplesModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  examplesModalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  examplesModal: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    maxHeight: '80%',
+    width: '90%',
+    maxWidth: 600,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  examplesModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  examplesModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  examplesModalContent: {
+    maxHeight: 500,
+  },
+  examplesModalSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  exampleModalCard: {
+    marginHorizontal: 24,
+    marginVertical: 8,
+    padding: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  exampleModalCardComplex: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
+  },
+  exampleModalCardMedium: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
+  },
+  exampleModalCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  exampleModalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    flex: 1,
+    marginRight: 12,
+  },
+  exampleModalBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#10b981',
+    borderRadius: 6,
+  },
+  exampleModalBadgeComplex: {
+    backgroundColor: '#f59e0b',
+  },
+  exampleModalBadgeMedium: {
+    backgroundColor: '#3b82f6',
+  },
+  exampleModalBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+  },
+  exampleModalPreview: {
+    fontSize: 14,
+    color: '#64748b',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  exampleModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  exampleModalWordCount: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: '500',
+  },
+  exampleModalAction: {
+    fontSize: 12,
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  // Loading Overlay Styles
+  rightPaneLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+  },
+  nonIdeResultsContainer: {
+    position: 'relative',
+  },
+  nonIdeLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
   },
   toggleBtn: {
     backgroundColor: '#f1f5f9',

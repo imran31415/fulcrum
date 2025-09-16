@@ -206,8 +206,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16, // Increased for better consistency
   },
   toolbarButton: {
     paddingHorizontal: 12,
@@ -232,8 +232,8 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   mainTextInput: {
-    padding: 16,
-    minHeight: 200,
+    padding: 24, // Increased from 16 to 24 for better spacing
+    minHeight: 400,
     fontSize: 15,
     lineHeight: 22,
     color: '#0f172a',
@@ -257,8 +257,8 @@ const styles = StyleSheet.create({
   statusBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 24, // Increased to match text input padding
+    paddingVertical: 10,
     backgroundColor: '#f8fafc',
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
