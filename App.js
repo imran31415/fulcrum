@@ -6,19 +6,49 @@ import { WasmProvider } from './src/wasm/WasmProvider';
 import { EnhancedResultDisplay } from './src/components/AnalysisComponents';
 import { PerformanceCompact } from './src/components/PerformanceComponents';
 import { InsightsTab } from './src/components/InsightComponents';
+import TaskGraph from './components/TaskGraph';
 // Ensure the native WebView module is installed (for iOS/Android):
 //   expo install react-native-webview
 
 
 export default function App() {
   const [ready, setReady] = useState(false);
-  const [input, setInput] = useState('Text analysis is a powerful technique for understanding written content and communication effectiveness. It helps identify readability levels, complexity patterns, linguistic features, and semantic structures that significantly impact reader comprehension and engagement. Modern computational tools can process natural language efficiently, providing detailed insights into vocabulary complexity, sentence structure, grammatical patterns, and stylistic elements. These analyses enable writers, educators, and content creators to optimize their text for specific audiences and purposes.');
+  const [input, setInput] = useState('I need to update the user authentication system to support OAuth. First, we must implement the OAuth client configuration. Then we should create the login flow UI components. After that, we have to test the integration with Google and GitHub providers. Finally, we need to deploy the changes to the staging server. Make sure to validate all security tokens properly.');
   const [result, setResult] = useState('');
   const [parsedResult, setParsedResult] = useState(null);
   const [error, setError] = useState('');
   const [showRawJSON, setShowRawJSON] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [activeTab, setActiveTab] = useState('metrics'); // 'metrics', 'insights', 'raw'
+  const [activeTab, setActiveTab] = useState('taskgraph'); // 'taskgraph', 'insights', 'metrics', 'raw'
+  const [showExamples, setShowExamples] = useState(false);
+
+  const examplePrompts = [
+    {
+      title: '🔐 OAuth Implementation',
+      text: 'I need to update the user authentication system to support OAuth. First, we must implement the OAuth client configuration. Then we should create the login flow UI components. After that, we have to test the integration with Google and GitHub providers. Finally, we need to deploy the changes to the staging server. Make sure to validate all security tokens properly.',
+      category: 'simple'
+    },
+    {
+      title: '🛍️ E-commerce Migration',
+      text: 'We need to migrate our e-commerce platform to a microservices architecture. First, we must analyze the current monolithic codebase and create a dependency map. Then we should design the new microservices architecture with separate services for user management, product catalog, and payment processing. After the architecture design, we have to implement the user service API. In parallel, we need to build the product catalog service. Once both services are ready, we must create the API gateway to route requests. Before implementing the payment service, we need to ensure PCI compliance requirements are met. Then we should integrate with Stripe and PayPal payment providers. After payment integration, we have to implement the order processing workflow. Meanwhile, we must set up the Kubernetes cluster for deployment. Once the cluster is ready, we need to configure CI/CD pipelines for each microservice. Then we should implement monitoring with Prometheus and Grafana. After all services are deployed, we have to migrate the existing customer data. Finally, we need to perform load testing to ensure the system can handle Black Friday traffic.',
+      category: 'complex'
+    },
+    {
+      title: '🚀 DevOps Pipeline',
+      text: 'I need to set up a complete DevOps pipeline for our multi-tenant SaaS application. First, we must audit the current infrastructure and identify security vulnerabilities. Then we should implement infrastructure as code using Terraform. After setting up IaC, we need to create three separate environments: development, staging, and production. Once environments are ready, we must configure VPN access for the team. In parallel, we should set up centralized logging with ELK stack. Before deploying applications, we have to implement secret management with HashiCorp Vault. Then we need to create Docker images for all services. Meanwhile, we should implement automated security scanning in the CI pipeline. Once security scanning is ready, we need to add unit tests and integration tests. After the CI pipeline is complete, we have to set up blue-green deployments. Finally, we must document the entire infrastructure and create an on-call rotation schedule.',
+      category: 'complex'
+    },
+    {
+      title: '📱 Mobile App Development',
+      text: 'We need to develop a new mobile application for our service. First, we must create wireframes and get stakeholder approval. Then we should set up the React Native development environment. After that, we need to implement the authentication screens. Once authentication is working, we have to build the main dashboard. In parallel, we should integrate push notifications. Then we must implement offline data synchronization. Finally, we need to submit the app to both App Store and Google Play.',
+      category: 'medium'
+    },
+    {
+      title: '🔍 Bug Fix Workflow',
+      text: 'We need to fix the critical bug in the payment system. First, I must reproduce the issue in the development environment. Then I should analyze the error logs to identify the root cause. After finding the issue, I need to implement a fix. Once the fix is ready, I have to write unit tests. Then we should test the fix in staging. Finally, we need to deploy the hotfix to production.',
+      category: 'simple'
+    }
+  ];
 
   useEffect(() => {
     initWasm().then(() => setReady(true)).catch((e) => setError(String(e)));
@@ -28,9 +58,33 @@ export default function App() {
   const run = async (op) => {
     setError('');
     setIsAnalyzing(true);
+    // Reset active tab when switching operations
+    if (op !== 'analyze') {
+      setActiveTab('simple');
+    } else {
+      setActiveTab('taskgraph');
+    }
+    
     try {
       const out = await processText(op, input);
       console.log('Raw WASM output:', out);
+      
+      // Better debug logging for TaskGraph
+      if (out?.success && out?.data) {
+        try {
+          const parsed = JSON.parse(out.data);
+          console.log('TaskGraph found:', parsed.task_graph ? 'YES' : 'NO');
+          if (parsed.task_graph) {
+            console.log('TaskGraph details:', {
+              totalTasks: parsed.task_graph.total_tasks,
+              tasks: parsed.task_graph.tasks?.length || 0,
+              relationships: parsed.task_graph.relationships?.length || 0
+            });
+          }
+        } catch (e) {
+          console.error('Error parsing data for TaskGraph check:', e);
+        }
+      }
       
       if (typeof out === 'object' && out !== null) {
         // Handle WASM response structure: { success: true/false, data: string/object, error?: string }
@@ -48,6 +102,9 @@ export default function App() {
             // Try to parse the data string as JSON
             try {
               const parsed = JSON.parse(data);
+              console.log('FULL PARSED DATA:', parsed);
+              console.log('KEYS IN PARSED DATA:', Object.keys(parsed));
+              console.log('TASK_GRAPH IN DATA:', parsed.task_graph);
               setResult(data);
               setParsedResult(parsed);
             } catch {
@@ -89,7 +146,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         {/* Mount native WebView bridge invisibly on iOS/Android */}
         {Platform.OS !== 'web' ? <WasmProvider /> : null}
 
@@ -103,16 +160,86 @@ export default function App() {
             </View>
           </View>
 
-          {/* Input */}
-          <Text style={styles.sectionLabel}>Text</Text>
-          <TextInput
-            style={styles.input}
-            multiline
-            value={input}
-            onChangeText={setInput}
-            placeholder="Type or paste text..."
-            placeholderTextColor="#64748b"
-          />
+          {/* Input Section with Enhanced Design */}
+          <View style={styles.inputSection}>
+            <View style={styles.inputHeader}>
+              <View style={styles.inputLabelContainer}>
+                <Text style={styles.sectionLabel}>Text Analysis Input</Text>
+                <Text style={styles.inputSubtitle}>Enter text to analyze for tasks, complexity, and insights</Text>
+              </View>
+              <Pressable
+                style={styles.examplesButton}
+                onPress={() => setShowExamples(!showExamples)}
+              >
+                <Text style={styles.examplesButtonText}>
+                  {showExamples ? '✕ Close' : '💡 Examples'}
+                </Text>
+              </Pressable>
+            </View>
+            
+            {/* Example Prompts */}
+            {showExamples && (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.examplesContainer}
+                contentContainerStyle={styles.examplesContent}
+              >
+                {examplePrompts.map((example, idx) => (
+                  <Pressable
+                    key={idx}
+                    style={[
+                      styles.exampleCard,
+                      example.category === 'complex' && styles.exampleCardComplex,
+                      example.category === 'medium' && styles.exampleCardMedium,
+                    ]}
+                    onPress={() => {
+                      setInput(example.text);
+                      setShowExamples(false);
+                    }}
+                  >
+                    <Text style={styles.exampleTitle}>{example.title}</Text>
+                    <Text style={styles.examplePreview} numberOfLines={2}>
+                      {example.text}
+                    </Text>
+                    <View style={[
+                      styles.exampleBadge,
+                      example.category === 'complex' && styles.exampleBadgeComplex,
+                      example.category === 'medium' && styles.exampleBadgeMedium,
+                    ]}>
+                      <Text style={styles.exampleBadgeText}>
+                        {example.category.toUpperCase()}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+            
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                multiline
+                value={input}
+                onChangeText={setInput}
+                placeholder="Type or paste your text here...\n\nTry describing a workflow, project plan, or any text with sequential tasks."
+                placeholderTextColor="#94a3b8"
+              />
+              <View style={styles.inputFooter}>
+                <Text style={styles.charCount}>
+                  {input.length} characters • {input.split(' ').filter(w => w).length} words
+                </Text>
+                {input.length > 0 && (
+                  <Pressable
+                    style={styles.clearButton}
+                    onPress={() => setInput('')}
+                  >
+                    <Text style={styles.clearButtonText}>Clear</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          </View>
 
           {/* Actions */}
           <View style={styles.row}>
@@ -145,17 +272,23 @@ export default function App() {
             )}
           </View>
           
-          {/* Tab Navigation */}
-          {parsedResult && (
+          {/* Tab Navigation - Only show for analyze operation */}
+          {parsedResult && parsedResult.complexity_metrics && (
             <View style={styles.tabBar}>
-              <Pressable 
-                style={[styles.tab, activeTab === 'metrics' && styles.activeTab]}
-                onPress={() => setActiveTab('metrics')}
-              >
-                <Text style={[styles.tabText, activeTab === 'metrics' && styles.activeTabText]}>
-                  📊 Metrics
-                </Text>
-              </Pressable>
+              {console.log('Tab render - task_graph exists:', !!parsedResult.task_graph, 'value:', parsedResult.task_graph)}
+              {(parsedResult.task_graph !== undefined) && (
+                <Pressable 
+                  style={[styles.tab, activeTab === 'taskgraph' && styles.activeTab]}
+                  onPress={() => setActiveTab('taskgraph')}
+                >
+                  <Text style={[styles.tabText, activeTab === 'taskgraph' && styles.activeTabText]}>
+                    🎯 Task Graph
+                  </Text>
+                  <View style={styles.derivedBadge}>
+                    <Text style={styles.derivedBadgeText}>AI-EXTRACTED</Text>
+                  </View>
+                </Pressable>
+              )}
               
               {(parsedResult.idea_analysis || parsedResult.insights) && (
                 <Pressable 
@@ -165,11 +298,17 @@ export default function App() {
                   <Text style={[styles.tabText, activeTab === 'insights' && styles.activeTabText]}>
                     🔍 Insights
                   </Text>
-                  <View style={styles.derivedBadge}>
-                    <Text style={styles.derivedBadgeText}>DERIVED</Text>
-                  </View>
                 </Pressable>
               )}
+              
+              <Pressable 
+                style={[styles.tab, activeTab === 'metrics' && styles.activeTab]}
+                onPress={() => setActiveTab('metrics')}
+              >
+                <Text style={[styles.tabText, activeTab === 'metrics' && styles.activeTabText]}>
+                  📊 Metrics
+                </Text>
+              </Pressable>
               
               <Pressable 
                 style={[styles.tab, activeTab === 'raw' && styles.activeTab]}
@@ -183,27 +322,39 @@ export default function App() {
           )}
           
           {/* Tab Content */}
-          {parsedResult ? (
-            activeTab === 'raw' ? (
-              <ScrollView style={styles.output} contentContainerStyle={styles.outputContent}>
-                <Text selectable style={styles.code}>{result}</Text>
-              </ScrollView>
-            ) : activeTab === 'insights' ? (
-              <InsightsTab data={parsedResult} />
+          {result ? (
+            parsedResult && parsedResult.complexity_metrics ? (
+              // Analysis results with tabs
+              activeTab === 'raw' ? (
+                <ScrollView style={styles.output} contentContainerStyle={styles.outputContent}>
+                  <Text selectable style={styles.code}>{result}</Text>
+                </ScrollView>
+              ) : activeTab === 'taskgraph' ? (
+                parsedResult.task_graph ? (
+                  <TaskGraph taskGraphData={parsedResult.task_graph} />
+                ) : (
+                  <View style={styles.output}>
+                    <Text style={styles.code}>No task graph data available. Tasks found: {parsedResult.task_graph?.total_tasks || 0}</Text>
+                  </View>
+                )
+              ) : activeTab === 'insights' ? (
+                <InsightsTab data={parsedResult} />
+              ) : activeTab === 'metrics' ? (
+                <EnhancedResultDisplay data={parsedResult} />
+              ) : null
             ) : (
-              <EnhancedResultDisplay data={parsedResult} />
+              // Simple text results (uppercase, lowercase, wordcount)
+              <View style={styles.simpleResultContainer}>
+                <Text style={styles.simpleResultText}>{result}</Text>
+              </View>
             )
-          ) : (
-            <ScrollView style={styles.output} contentContainerStyle={styles.outputContent}>
-              <Text selectable style={styles.code}>{result}</Text>
-            </ScrollView>
-          )}
+          ) : null}
 
           <Text style={styles.footer}>Made with Go + WASM</Text>
         </View>
 
         <StatusBar style="light" />
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -216,11 +367,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     width: '100%',
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 8,
+    paddingBottom: 20,
   },
   content: {
-    flex: 1,
     width: '100%',
     maxWidth: 920,
     alignSelf: 'center',
@@ -260,11 +414,115 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sectionLabel: {
-    color: '#475569',
-    fontSize: 12,
-    marginBottom: 6,
-    marginTop: 8,
+    color: '#1e293b',
+    fontSize: 14,
+    fontWeight: '600',
     letterSpacing: 0.2,
+  },
+  inputSection: {
+    marginVertical: 12,
+  },
+  inputHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  inputLabelContainer: {
+    flex: 1,
+  },
+  inputSubtitle: {
+    color: '#64748b',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  examplesButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#667eea',
+    borderRadius: 20,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  examplesButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  examplesContainer: {
+    marginBottom: 12,
+    maxHeight: 140,
+  },
+  examplesContent: {
+    paddingRight: 16,
+    gap: 12,
+  },
+  exampleCard: {
+    width: 200,
+    padding: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  exampleCardComplex: {
+    borderColor: '#f59e0b',
+    backgroundColor: '#fffbeb',
+  },
+  exampleCardMedium: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
+  },
+  exampleTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 6,
+  },
+  examplePreview: {
+    fontSize: 11,
+    color: '#64748b',
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  exampleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#10b981',
+    borderRadius: 4,
+  },
+  exampleBadgeComplex: {
+    backgroundColor: '#f59e0b',
+  },
+  exampleBadgeMedium: {
+    backgroundColor: '#3b82f6',
+  },
+  exampleBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+  },
+  inputWrapper: {
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    overflow: 'hidden',
   },
   outputHeader: {
     flexDirection: 'row',
@@ -281,7 +539,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    borderBottomColor: '#e5e7eb',
   },
   tab: {
     flexDirection: 'row',
@@ -297,11 +555,12 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
-    color: '#999',
+    color: '#64748b',
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#fff',
+    color: '#646cff',
+    fontWeight: '600',
   },
   derivedBadge: {
     marginLeft: 6,
@@ -333,18 +592,38 @@ const styles = StyleSheet.create({
   },
   input: {
     width: '100%',
-    minHeight: 120,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: '#ffffff',
+    minHeight: 140,
+    padding: 16,
     color: '#0f172a',
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlignVertical: 'top',
+  },
+  inputFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#f8f9fa',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  charCount: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  clearButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+  },
+  clearButtonText: {
+    fontSize: 11,
+    color: '#ffffff',
+    fontWeight: '600',
   },
   row: {
     flexDirection: 'row',
@@ -427,5 +706,29 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 12,
     textAlign: 'center',
+  },
+  simpleResultContainer: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    backgroundColor: '#ffffff',
+    padding: 32,
+    alignItems: 'center',
+    minHeight: 120,
+    justifyContent: 'center',
+    shadowColor: '#667eea',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+    marginVertical: 8,
+  },
+  simpleResultText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#1e293b',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
 });

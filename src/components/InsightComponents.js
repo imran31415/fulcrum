@@ -449,6 +449,18 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 4,
   },
+  taskGraphSection: {
+    minHeight: 500,
+    backgroundColor: '#ffffff',
+    margin: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
   
   distributionCard: {
     backgroundColor: '#ffffff',
