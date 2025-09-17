@@ -246,9 +246,12 @@ export default function App() {
                 
                 // Auto-open report card if we have prompt grade data
                 if (parsed.prompt_grade) {
+                  // Use a longer delay for mobile devices to ensure everything has rendered
+                  const delay = Platform.OS === 'web' ? 1500 : 2000;
                   setTimeout(() => {
+                    console.log('Auto-opening report card...');
                     setShowReportCard(true);
-                  }, 1000); // Small delay to let the analysis results render first
+                  }, delay);
                 }
               }
             } catch {
@@ -1003,7 +1006,7 @@ export default function App() {
                       style={[styles.quickAccessBtn, activeTab === 'metrics' && styles.quickAccessBtnActive]}
                       onPress={() => setActiveTab('metrics')}
                     >
-                      <Text style={styles.quickAccessIcon}>📊</Text>
+                      <Text style={styles.quickAccessIcon}>📀</Text>
                       <AnimatedText 
                         text="Metrics" 
                         style={[styles.quickAccessText, activeTab === 'metrics' && styles.quickAccessTextActive]}
@@ -1011,6 +1014,22 @@ export default function App() {
                         typingSpeed={40}
                       />
                     </Pressable>
+                    
+                    {/* Report Card Button for Mobile */}
+                    {parsedResult?.prompt_grade && (
+                      <Pressable 
+                        style={styles.quickAccessBtn}
+                        onPress={() => setShowReportCard(true)}
+                      >
+                        <Text style={styles.quickAccessIcon}>📄</Text>
+                        <AnimatedText 
+                          text="Report Card" 
+                          style={styles.quickAccessText}
+                          delay={700}
+                          typingSpeed={40}
+                        />
+                      </Pressable>
+                    )}
                   </View>
                 </View>
               )}
