@@ -30,6 +30,7 @@ import DragDivider from './src/components/DragDivider';
 import PromptLibrary from './src/components/PromptLibrary';
 import AnimatedText from './src/components/AnimatedText';
 import AboutZeroToken from './src/components/AboutZeroToken';
+import PromptReportCard from './src/components/PromptReportCard';
 // Ensure the native WebView module is installed (for iOS/Android):
 //   expo install react-native-webview
 
@@ -116,6 +117,8 @@ export default function App() {
   const [rightPaneView, setRightPaneView] = useState('library'); // 'library' or 'analysis'
   // Analysis summary state
   const [analysisSummary, setAnalysisSummary] = useState(null);
+  // Report Card state
+  const [showReportCard, setShowReportCard] = useState(false);
   // Scroll ref for auto-scrolling to results
   const scrollViewRef = useRef(null);
 
@@ -231,19 +234,6 @@ export default function App() {
             // Try to parse the data string as JSON
             try {
               const parsed = JSON.parse(data);
-              console.log('FULL PARSED DATA:', parsed);
-              console.log('KEYS IN PARSED DATA:', Object.keys(parsed));
-              console.log('TASK_GRAPH IN DATA:', parsed.task_graph);
-              console.log('PROMPT_GRADE IN DATA:', parsed.prompt_grade);
-              console.log('Has prompt_grade key?', 'prompt_grade' in parsed);
-              if (parsed.prompt_grade) {
-                console.log('PromptGrade details:', {
-                  overallGrade: parsed.prompt_grade.overall_grade,
-                  understandability: parsed.prompt_grade.understandability?.score,
-                  specificity: parsed.prompt_grade.specificity?.score,
-                  suggestions: parsed.prompt_grade.suggestions?.length
-                });
-              }
               setResult(data);
               setParsedResult(parsed);
               // Expose for debugging
@@ -253,6 +243,13 @@ export default function App() {
               if (op === 'analyze' && parsed) {
                 const summary = generateAnalysisSummary(parsed);
                 setAnalysisSummary(summary);
+                
+                // Auto-open report card if we have prompt grade data
+                if (parsed.prompt_grade) {
+                  setTimeout(() => {
+                    setShowReportCard(true);
+                  }, 1000); // Small delay to let the analysis results render first
+                }
               }
             } catch {
               // Not JSON, treat as plain text
@@ -636,9 +633,19 @@ export default function App() {
                       typingSpeed={70}
                       showCursor={false}
                     />
-                    {rightPaneView === 'analysis' && parsedResult && parsedResult.performance_metrics && (
-                      <PerformanceCompact performanceData={parsedResult.performance_metrics} />
-                    )}
+                    <View style={styles.rightPaneHeaderActions}>
+                      {rightPaneView === 'analysis' && parsedResult && parsedResult.prompt_grade && (
+                        <Pressable 
+                          style={styles.reportCardButton}
+                          onPress={() => setShowReportCard(true)}
+                        >
+                          <Text style={styles.reportCardButtonText}>📄 View Report Card</Text>
+                        </Pressable>
+                      )}
+                      {rightPaneView === 'analysis' && parsedResult && parsedResult.performance_metrics && (
+                        <PerformanceCompact performanceData={parsedResult.performance_metrics} />
+                      )}
+                    </View>
                   </View>
                   
                   {/* Right Pane View Toggle */}
@@ -924,9 +931,19 @@ export default function App() {
                   typingSpeed={80}
                   showCursor={false}
                 />
-                {parsedResult && parsedResult.performance_metrics && (
-                  <PerformanceCompact performanceData={parsedResult.performance_metrics} />
-                )}
+                <View style={styles.outputHeaderRight}>
+                  {parsedResult && parsedResult.prompt_grade && (
+                    <Pressable 
+                      style={styles.reportCardButton}
+                      onPress={() => setShowReportCard(true)}
+                    >
+                      <Text style={styles.reportCardButtonText}>📄 View Report Card</Text>
+                    </Pressable>
+                  )}
+                  {parsedResult && parsedResult.performance_metrics && (
+                    <PerformanceCompact performanceData={parsedResult.performance_metrics} />
+                  )}
+                </View>
               </View>
               
               {/* Mobile Quick Access Buttons - Show only when we have analysis results */}
@@ -1226,6 +1243,14 @@ export default function App() {
           setInput(template);
           setShowPromptLibrary(false);
         }}
+      />
+
+      {/* Report Card Modal */}
+      <PromptReportCard
+        visible={showReportCard}
+        onClose={() => setShowReportCard(false)}
+        analysisData={parsedResult}
+        originalPrompt={input}
       />
 
     </SafeAreaView>
@@ -1601,14 +1626,32 @@ const styles = StyleSheet.create({
   },
   outputHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    paddingVertical: 2,
   },
   outputHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  reportCardButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+    minWidth: 120,
+  },
+  reportCardButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   tabContainer: {
     marginBottom: 16,
@@ -1808,6 +1851,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   rightPaneTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rightPaneHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
