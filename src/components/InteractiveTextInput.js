@@ -19,7 +19,8 @@ const InteractiveTextInput = ({
   placeholder, 
   suggestions = [],
   onSuggestionClick,
-  showSuggestions = true 
+  showSuggestions = true,
+  style 
 }) => {
   console.log('🎯 InteractiveTextInput mounted with:', {
     suggestionCount: suggestions.length,
@@ -456,7 +457,7 @@ const InteractiveTextInput = ({
         {/* Text Input */}
         <TextInput
           ref={inputRef}
-          style={styles.mainTextInput}
+          style={[styles.mainTextInput, style]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -742,7 +743,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     paddingLeft: 12, // Reduced since line numbers provide the left spacing
-    minHeight: 400,
+    minHeight: 320, // Increased to better fill the 400px container
     fontSize: 15,
     lineHeight: 22,
     color: '#111827',

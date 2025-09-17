@@ -453,9 +453,13 @@ export default function App() {
               <Text style={styles.brand}>ZeroToken.io</Text>
             </View>
             <View style={styles.statusRow}>
-              <View style={styles.tokensBadge}><Text style={styles.tokensBadgeText}>TOKENS USED: ZERO</Text></View>
-              <View style={[styles.statusDot, ready ? styles.statusDotReady : styles.statusDotInit]} />
-              <Text style={styles.statusText}>{ready ? 'WASM ready' : 'Initializing'}</Text>
+              {!isNarrowScreen && (
+                <>
+                  <View style={styles.tokensBadge}><Text style={styles.tokensBadgeText}>TOKENS USED: ZERO</Text></View>
+                  <View style={[styles.statusDot, ready ? styles.statusDotReady : styles.statusDotInit]} />
+                  <Text style={styles.statusText}>{ready ? 'WASM ready' : 'Initializing'}</Text>
+                </>
+              )}
               {isWideScreen && isWebPlatform && (
                 <Text style={styles.ideMode}>IDE Mode</Text>
               )}
@@ -503,12 +507,14 @@ export default function App() {
                   onSuggestionClick={(suggestion, position) => {
                     console.log('Suggestion clicked:', suggestion.message, 'at position:', position);
                   }}
+                  style={isNarrowScreen ? styles.textInputMobile : null}
                 />
               ) : (
                 <MarkdownTextInput
                   value={input}
                   onChangeText={setInput}
                   placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
+                  style={isNarrowScreen ? styles.textInputMobile : null}
                 />
               )}
             </View>
@@ -754,7 +760,7 @@ export default function App() {
             // Non-IDE layout for smaller screens
             <>
               {/* Input Section with Enhanced Design */}
-              <View style={styles.inputSection}>
+              <View style={[styles.inputSection, isNarrowScreen && styles.inputSectionMobile]}>
                 <View style={styles.inputHeader}>
                   <View style={styles.inputHeaderButtons}>
                     {parsedResult?.prompt_grade?.suggestions && (
@@ -778,7 +784,7 @@ export default function App() {
                   </View>
                 </View>
                 
-                <View style={styles.enhancedEditorWrapper}>
+                <View style={[styles.enhancedEditorWrapper, isNarrowScreen && styles.enhancedEditorWrapperMobile]}>
                   {useInteractiveInput && parsedResult?.prompt_grade?.suggestions ? (
                     <InteractiveTextInput
                       value={input}
@@ -789,12 +795,14 @@ export default function App() {
                       onSuggestionClick={(suggestion, position) => {
                         console.log('Suggestion clicked:', suggestion.message, 'at position:', position);
                       }}
+                      style={isNarrowScreen ? styles.textInputMobile : null}
                     />
                   ) : (
                     <MarkdownTextInput
                       value={input}
                       onChangeText={setInput}
                       placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
+                      style={isNarrowScreen ? styles.textInputMobile : null}
                     />
                   )}
                 </View>
@@ -1232,6 +1240,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     width: '100%',
+    minHeight: 0, // Helps with flex shrinking on mobile
   },
   scrollContent: {
     flexGrow: 1,
@@ -1306,6 +1315,13 @@ const styles = StyleSheet.create({
   },
   inputSection: {
     marginVertical: 12,
+  },
+  // Mobile optimized input section
+  inputSectionMobile: {
+    marginVertical: 8,
+    // Remove maxHeight constraint that was causing overflow
+    display: 'flex',
+    flexDirection: 'column',
   },
   inputHeader: {
     flexDirection: 'row',
@@ -1567,7 +1583,21 @@ const styles = StyleSheet.create({
   enhancedEditorWrapper: {
     width: '100%',
     flex: 1,
-    minHeight: 300,
+    minHeight: 400, // Increased to 400px for web
+    maxHeight: 600, // Increased max height to match
+  },
+  // Mobile specific enhanced editor wrapper
+  enhancedEditorWrapperMobile: {
+    width: '100%',
+    minHeight: 220, // Slightly increased for mobile
+    maxHeight: 400, // Reasonable max height for mobile
+    flex: 1, // Allow flex grow for proper sizing
+    flexShrink: 0, // Prevent unwanted shrinking
+  },
+  // Mobile specific text input styles
+  textInputMobile: {
+    minHeight: 180, // Better default height for mobile
+    maxHeight: 320, // Allow more growth on mobile when space permits
   },
   outputHeader: {
     flexDirection: 'row',
@@ -1906,6 +1936,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
     backgroundColor: '#f8fafc',
+    flexShrink: 0, // Prevent button from shrinking on mobile
   },
   analyzeButton: {
     flex: 1,

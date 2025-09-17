@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 
-const MarkdownTextInput = ({ value, onChangeText, placeholder }) => {
+const MarkdownTextInput = ({ value, onChangeText, placeholder, style }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ start: 0, end: 0 });
   const [lineNumbers, setLineNumbers] = useState([]);
@@ -169,7 +169,7 @@ const MarkdownTextInput = ({ value, onChangeText, placeholder }) => {
       {/* Main Text Input */}
       <TextInput
         ref={inputRef}
-        style={styles.mainTextInput}
+        style={[styles.mainTextInput, style]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -233,7 +233,8 @@ const styles = StyleSheet.create({
   },
   mainTextInput: {
     padding: 24, // Increased from 16 to 24 for better spacing
-    minHeight: 400,
+    flex: 1, // Use flex instead of fixed height
+    minHeight: 320, // Increased to better fill the 400px container
     fontSize: 15,
     lineHeight: 22,
     color: '#0f172a',
