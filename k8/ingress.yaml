@@ -13,7 +13,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
     # CORS settings for WASM
     nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "https://zerotoken.io, https://www.zerotoken.io"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://zerotoken.io"
     nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
 spec:
@@ -23,7 +23,6 @@ spec:
     secretName: fulcrum-tls
   - hosts:
     - zerotoken.io
-    - www.zerotoken.io
     secretName: zerotoken-tls
   rules:
   - host: fulcrum.scalebase.io
@@ -37,16 +36,6 @@ spec:
             port:
               number: 80
   - host: zerotoken.io
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: fulcrum-service
-            port:
-              number: 80
-  - host: www.zerotoken.io
     http:
       paths:
       - path: /

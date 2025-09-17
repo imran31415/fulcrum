@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, Pressable, TouchableOpacity, ScrollView, SafeAreaView, Platform, InteractionManager, Dimensions, Modal } from 'react-native';
 // Conditionally import WASM based on platform and worker support
 let initWasm, processText;
@@ -116,6 +116,8 @@ export default function App() {
   const [rightPaneView, setRightPaneView] = useState('library'); // 'library' or 'analysis'
   // Analysis summary state
   const [analysisSummary, setAnalysisSummary] = useState(null);
+  // Scroll ref for auto-scrolling to results
+  const scrollViewRef = useRef(null);
 
   const examplePrompts = [
     {
@@ -420,6 +422,14 @@ export default function App() {
     }
   };
 
+  // Function to scroll to results section
+  const scrollToResults = () => {
+    if (scrollViewRef.current && isNarrowScreen) {
+      // Scroll to a position that shows the results area
+      scrollViewRef.current.scrollTo({ y: 800, animated: true });
+    }
+  };
+
   const availableTabs = getAvailableTabs();
   const isNarrowScreen = screenWidth < 768; // Consider screens under 768px as narrow
   const isWideScreen = screenWidth >= 1024; // IDE mode for screens 1024px and wider (reduced threshold)
@@ -427,7 +437,11 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.container} 
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Mount native WebView bridge invisibly on iOS/Android */}
         {Platform.OS !== 'web' ? <WasmProvider /> : null}
 
@@ -557,6 +571,34 @@ export default function App() {
                     >
                       <Text style={styles.utilityMenuItemText}>📊 Word Count</Text>
                     </Pressable>
+                  </View>
+                )}
+
+                {/* Analysis Summary Tooltip - Below prompt area */}
+                {analysisSummary && (
+                  <View style={styles.summaryTooltipBelow}>
+                    <View style={styles.summaryContent}>
+                      <Text style={styles.summaryText}>{analysisSummary.text}</Text>
+                      <Text style={styles.summarySubtitle}>
+                        Synthesized suggestions, task graph, insights, and metrics
+                      </Text>
+                    </View>
+                    <View style={styles.summaryActions}>
+                      {isNarrowScreen && (
+                        <Pressable 
+                          style={styles.scrollToResultButton}
+                          onPress={scrollToResults}
+                        >
+                          <Text style={styles.scrollToResultText}>🔽 Scroll to Result</Text>
+                        </Pressable>
+                      )}
+                      <Pressable 
+                        style={styles.summaryCloseButton}
+                        onPress={() => setAnalysisSummary(null)}
+                      >
+                        <Text style={styles.summaryCloseText}>✕</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 )}
 
@@ -827,6 +869,34 @@ export default function App() {
                 )}
               </View>
 
+              {/* Analysis Summary Tooltip - Below prompt area */}
+              {analysisSummary && (
+                <View style={styles.summaryTooltipBelow}>
+                  <View style={styles.summaryContent}>
+                    <Text style={styles.summaryText}>{analysisSummary.text}</Text>
+                    <Text style={styles.summarySubtitle}>
+                      Synthesized suggestions, task graph, insights, and metrics
+                    </Text>
+                  </View>
+                  <View style={styles.summaryActions}>
+                    {isNarrowScreen && (
+                      <Pressable 
+                        style={styles.scrollToResultButton}
+                        onPress={scrollToResults}
+                      >
+                        <Text style={styles.scrollToResultText}>🔽 Scroll to Result</Text>
+                      </Pressable>
+                    )}
+                    <Pressable 
+                      style={styles.summaryCloseButton}
+                      onPress={() => setAnalysisSummary(null)}
+                    >
+                      <Text style={styles.summaryCloseText}>✕</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
               {/* About ZeroToken - Compact for mobile */}
               <AboutZeroToken isCompact={isNarrowScreen} showAnimation={!isNarrowScreen} />
 
@@ -1018,23 +1088,6 @@ export default function App() {
         <StatusBar style="light" />
       </ScrollView>
 
-      {/* Analysis Summary Tooltip */}
-      {analysisSummary && (
-        <View style={styles.summaryTooltip}>
-          <View style={styles.summaryContent}>
-            <Text style={styles.summaryText}>{analysisSummary.text}</Text>
-            <Text style={styles.summarySubtitle}>
-              Synthesized suggestions, task graph, insights, and metrics
-            </Text>
-          </View>
-          <Pressable 
-            style={styles.summaryCloseButton}
-            onPress={() => setAnalysisSummary(null)}
-          >
-            <Text style={styles.summaryCloseText}>✕</Text>
-          </Pressable>
-        </View>
-      )}
 
       <Modal
         visible={showTabSelector}
@@ -1372,19 +1425,14 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 0.5,
   },
-  summaryTooltip: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
+  summaryTooltipBelow: {
     backgroundColor: 'rgba(17,24,39,0.96)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    zIndex: 9999,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    marginVertical: 12,
+    flexDirection: 'column',
     gap: 12,
-    maxWidth: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1392,6 +1440,12 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+  },
+  summaryActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
   },
   summaryContent: {
     flex: 1,
@@ -1417,6 +1471,22 @@ const styles = StyleSheet.create({
   },
   summaryCloseText: {
     color: '#e5e7eb',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  scrollToResultButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  scrollToResultText: {
+    color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
   },
