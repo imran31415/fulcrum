@@ -636,7 +636,6 @@ const PromptReportCard = ({ visible, analysisData, originalPrompt, onClose }) =>
               )}
             </View>
           )}
-          )}
 
           {/* Performance Summary */}
           {performance_metrics && (
