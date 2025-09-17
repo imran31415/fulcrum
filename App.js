@@ -21,15 +21,74 @@ import { InsightsTab } from './src/components/InsightComponents';
 import TaskGraph from './components/TaskGraph';
 import PromptGradeTab from './src/components/PromptGradeTab';
 import SuggestionsTab from './src/components/SuggestionsTab';
+import SuggestionsGradeTab from './src/components/SuggestionsGradeTab';
 import LoadingProgress from './src/components/LoadingProgress';
 import CompactLoadingProgress from './src/components/CompactLoadingProgress';
 import MarkdownTextInput from './src/components/MarkdownTextInput';
 import InteractiveTextInput from './src/components/InteractiveTextInput';
 import DragDivider from './src/components/DragDivider';
 import PromptLibrary from './src/components/PromptLibrary';
+import AnimatedText from './src/components/AnimatedText';
+import AboutZeroToken from './src/components/AboutZeroToken';
 // Ensure the native WebView module is installed (for iOS/Android):
 //   expo install react-native-webview
 
+// Helper function to generate analysis summary
+function generateAnalysisSummary(parsed) {
+  if (!parsed) return null;
+  
+  let summaryParts = [];
+  
+  // Add prompt grade info with friendly icon
+  if (parsed.prompt_grade) {
+    const grade = parsed.prompt_grade.overall_grade;
+    let gradeValue = 'Unknown';
+    let gradeIcon = '📊';
+    
+    if (typeof grade === 'object' && grade !== null) {
+      // If grade is an object, try to extract a meaningful value
+      gradeValue = grade.letter || grade.score || grade.value || 'Unknown';
+    } else if (grade) {
+      gradeValue = grade;
+    }
+    
+    // Choose icon based on grade
+    if (typeof gradeValue === 'number') {
+      if (gradeValue >= 90) gradeIcon = '🌟';
+      else if (gradeValue >= 80) gradeIcon = '✨';
+      else if (gradeValue >= 70) gradeIcon = '📈';
+      else gradeIcon = '💪';
+    } else if (typeof gradeValue === 'string') {
+      const upperGrade = gradeValue.toString().toUpperCase();
+      if (upperGrade.includes('A')) gradeIcon = '🌟';
+      else if (upperGrade.includes('B')) gradeIcon = '✨';
+      else if (upperGrade.includes('C')) gradeIcon = '📈';
+      else gradeIcon = '💪';
+    }
+    
+    summaryParts.push(`${gradeIcon} Grade: ${gradeValue}`);
+  }
+  
+  // Add task count with icon
+  if (parsed.task_graph && parsed.task_graph.total_tasks) {
+    summaryParts.push(`🎯 ${parsed.task_graph.total_tasks} tasks identified`);
+  }
+  
+  // Add suggestion count with icon
+  if (parsed.prompt_grade && parsed.prompt_grade.suggestions) {
+    const suggestionCount = parsed.prompt_grade.suggestions.length;
+    if (suggestionCount > 0) {
+      summaryParts.push(`💡 ${suggestionCount} suggestion${suggestionCount > 1 ? 's' : ''}`);
+    }
+  }
+  
+  // Add token usage (placeholder for now - you can update this when token data is available)
+  summaryParts.push(`🪙 0 tokens used`);
+  
+  return {
+    text: summaryParts.length > 0 ? summaryParts.join(' • ') : '✅ Analysis complete'
+  };
+}
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -41,7 +100,7 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState('promptgrade'); // 'promptgrade', 'suggestions', 'taskgraph', 'insights', 'metrics', 'raw'
   const [showExamples, setShowExamples] = useState(false);
-  const [useEnhancedEditor, setUseEnhancedEditor] = useState(true); // Default to enhanced editor
+  const [useEnhancedEditor] = useState(true); // Always use enhanced editor
   const [showTabSelector, setShowTabSelector] = useState(false);
   const [showUtilityMenu, setShowUtilityMenu] = useState(false);
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -55,6 +114,8 @@ export default function App() {
   const [showPromptLibrary, setShowPromptLibrary] = useState(false);
   // Right pane view state
   const [rightPaneView, setRightPaneView] = useState('library'); // 'library' or 'analysis'
+  // Analysis summary state
+  const [analysisSummary, setAnalysisSummary] = useState(null);
 
   const examplePrompts = [
     {
@@ -98,6 +159,8 @@ export default function App() {
 
   const run = async (op) => {
     setError('');
+    // Reset analysis summary
+    setAnalysisSummary(null);
     // Don't set isAnalyzing here if it's already set (from button press)
     if (!isAnalyzing) {
       setIsAnalyzing(true);
@@ -183,6 +246,12 @@ export default function App() {
               setParsedResult(parsed);
               // Expose for debugging
               window.parsedResult = parsed;
+              
+              // Generate analysis summary for analyze operations
+              if (op === 'analyze' && parsed) {
+                const summary = generateAnalysisSummary(parsed);
+                setAnalysisSummary(summary);
+              }
             } catch {
               // Not JSON, treat as plain text
               setResult(data);
@@ -225,16 +294,13 @@ export default function App() {
   const getAvailableTabs = () => {
     const tabs = [];
     
+    // Combined Suggestions + Grade tab (only show if we have prompt_grade data)
     if (parsedResult?.prompt_grade !== undefined) {
-      tabs.push({ key: 'promptgrade', label: '📊 Grade', icon: '📊' });
-    }
-    
-    if (parsedResult?.prompt_grade?.suggestions?.length > 0) {
-      tabs.push({ 
-        key: 'suggestions', 
-        label: `💡 Suggestions (${parsedResult.prompt_grade.suggestions.length})`, 
-        icon: '💡' 
-      });
+      const suggestionCount = parsedResult?.prompt_grade?.suggestions?.length || 0;
+      const label = suggestionCount > 0 
+        ? `💡 Suggestions & Grade (${suggestionCount})` 
+        : '📊 Grade & Tips';
+      tabs.push({ key: 'promptgrade', label, icon: '💡' });
     }
     
     if (parsedResult?.task_graph !== undefined) {
@@ -250,6 +316,84 @@ export default function App() {
     
     return tabs;
   };
+
+  // Build a scaffold to insert into the prompt from a suggestion
+  function buildScaffoldFromSuggestion(s, parsed) {
+    var dim = ((s && s.dimension) ? s.dimension : '').toLowerCase();
+    var msg = ((s && s.message) ? s.message : '').toLowerCase();
+    var meta = (parsed && parsed.prompt_grade && parsed.prompt_grade.suggestion_meta) ? parsed.prompt_grade.suggestion_meta : {};
+    var ptype = ((meta && meta.prompt_type) ? meta.prompt_type : '').toLowerCase();
+    function includesAny(str, arr) {
+      if (!str || !arr || !arr.length) return false;
+      for (var i = 0; i < arr.length; i++) {
+        if (str.indexOf(arr[i]) !== -1) return true;
+      }
+      return false;
+    }
+
+    // Targeted scaffolds based on message and prompt type
+    if (includesAny(msg, ['non-functional requirements', 'performance', 'slas', 'security']) || (ptype === 'technical_spec' && dim.indexOf('context') !== -1)) {
+      return "## Context\n- Runtime: <Node.js 20 | Python 3.11>\n- Framework: <Express | FastAPI>\n- Database: <Postgres 15>\n- Hosting: <AWS Lambda>\n- Non-Functional: p95 latency < 200ms, 99.9% uptime, rate-limit 100 rps\n- Security: OAuth2/JWT, input validation, logging + metrics\n";
+    }
+
+    if (includesAny(msg, ['interface shapes', 'schemas', 'endpoint contracts']) || (ptype === 'code_generation' && dim.indexOf('specific') !== -1)) {
+      return "## Interfaces / Contracts\nInput (JSON):\n{\n  \"id\": \"string\",\n  \"name\": \"string\",\n  \"status\": \"active|inactive\"\n}\n\nOutput (JSON):\n{\n  \"ok\": true,\n  \"errors\": []\n}\n";
+    }
+
+    if (includesAny(msg, ['deliverables', 'step-by-step', 'steps']) || dim.indexOf('action') !== -1) {
+      return "## Deliverables / Steps\n1) Database schema (SQL or migration)\n2) API endpoints (OpenAPI spec)\n3) Implementation (handlers/services)\n4) Unit tests (covering success + failure cases)\n5) README with run + test instructions\n";
+    }
+
+    if (includesAny(msg, ['tests', 'observability', 'logging', 'metrics']) || dim.indexOf('quality') !== -1) {
+      return "## Quality\n- Tests: unit, integration (mock external services)\n- Observability: structured logs, metrics (request_count, error_rate, latency)\n- Error handling: retries (exponential backoff) on 5xx, idempotency\n";
+    }
+
+    if (includesAny(msg, ['split into phases', 'separate prompts']) || dim.indexOf('scope') !== -1) {
+      return "## Phases\nPhase 1: Ingestion (receive + validate payloads)\nPhase 2: Processing (business rules + persistence)\nPhase 3: Exports (notifications or downstream updates)\n";
+    }
+
+    // Data analysis specific scaffolds
+    if (ptype === 'data_analysis' && includesAny(msg, ['dataset fields', 'time window', 'filters'])) {
+      return "## Dataset Specification\n- Tables/files: <customers.csv>, <events.csv>\n- Key fields: customer_id, plan, mrr, signup_date, last_active_at, churned_at\n- Time window: <2024-01-01 .. 2024-12-31>\n- Filters: <active customers>, <region = US>\n- Join keys: customers.customer_id = events.customer_id\n";
+    }
+
+    if (ptype === 'data_analysis' && includesAny(msg, ['analysis methods', 'output artifacts'])) {
+      return "## Analysis Plan\n- EDA: distributions, missingness, correlations\n- Cohorts: by acquisition channel, plan\n- Modeling: logistic regression + random forest (compare AUC/F1)\n- Validation: train/valid split, cross-validation, ROC/PR curves\n- Deliverables: notebook, dashboard (key charts), executive summary PDF\n";
+    }
+
+    if (ptype === 'data_analysis' && includesAny(msg, ['convert open questions'])) {
+      return "## Questions → Tasks\n- Q: What drives churn most? → T: Fit logit with standardized features; report top coefficients (±CI)\n- Q: Which segments at risk? → T: Predict risk; list top 5 segments by lift\n- Q: What action reduces churn? → T: Simulate retention uplift scenarios and expected ROI\n";
+    }
+
+    // Creative/Writing brief
+    if ((ptype === 'creative_task' || ptype === 'writing') && includesAny(msg, ['audience', 'tone', "do/don't", 'style'])) {
+      return "## Creative Brief\n- Audience: <who>\n- Tone/Voice: <e.g., practical, friendly>\n- Style: <short sentences, active voice>\n- Do: <short bullets>\n- Don't: <avoid clichés>\n- Key messages: <list>\n";
+    }
+
+    if ((ptype === 'creative_task' || ptype === 'writing') && includesAny(msg, ['reference examples', 'links'])) {
+      return "## References\n- <https://example.com/reference-1>\n- <https://example.com/reference-2>\n- Notes: emulate structure; adapt tone to Audience above\n";
+    }
+
+    // Learning curriculum
+    if (ptype === 'learning' && includesAny(msg, ['learning objectives', 'timeline'])) {
+      return "## Learning Objectives & Timeline\n- Objectives: <list three measurable outcomes>\n- Timeline: 4 weeks, 10h/week\n- Prereqs: <list>\n";
+    }
+
+    if (ptype === 'learning' && includesAny(msg, ['curriculum', 'exercises', 'assessments'])) {
+      return "## Curriculum (4 Weeks)\nWeek 1: Basics — theory 15m, code demo, 1 exercise, quiz\nWeek 2: Feature engineering + validation — demo, exercise, quiz\nWeek 3: Modeling — logit + trees; metrics; project exercise\nWeek 4: Deployment basics + wrap-up — capstone + assessment\n";
+    }
+
+    // General clarifying questions
+    if (includesAny(msg, ['clarifying questions'])) {
+      return "## Clarifying Questions\n1) What are success criteria and constraints?\n2) What inputs/outputs and formats are expected?\n3) What environment and dependencies apply?\n4) Any non-functional requirements (perf, security, SLA)?\n5) Are examples or references available?\n";
+    }
+
+    // Default fallback: return example if present
+    if (s && s.example) {
+      return "## Example\n" + s.example + "\n";
+    }
+    return '';
+  }
 
   // Drag handling logic
   const handleDrag = (deltaX, isDragEnd = false, isDragStart = false) => {
@@ -290,7 +434,10 @@ export default function App() {
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.brand}>Zero Tokens</Text>
+            <View style={styles.brandContainer}>
+              <Text style={styles.brandIcon}>🎯</Text>
+              <Text style={styles.brand}>ZeroToken.io</Text>
+            </View>
             <View style={styles.statusRow}>
               <View style={styles.tokensBadge}><Text style={styles.tokensBadgeText}>TOKENS USED: ZERO</Text></View>
               <View style={[styles.statusDot, ready ? styles.statusDotReady : styles.statusDotInit]} />
@@ -309,19 +456,7 @@ export default function App() {
                 {/* Input Section with Enhanced Design */}
           <View style={styles.inputSection}>
             <View style={styles.inputHeader}>
-              <View style={styles.inputLabelContainer}>
-                <Text style={styles.sectionLabel}>Text Analysis Input</Text>
-                <Text style={styles.inputSubtitle}>Enter text to analyze for tasks, complexity, and insights</Text>
-              </View>
               <View style={styles.inputHeaderButtons}>
-                <Pressable
-                  style={styles.headerButton}
-                  onPress={() => setUseEnhancedEditor(!useEnhancedEditor)}
-                >
-                  <Text style={styles.headerButtonText}>
-                    {useEnhancedEditor ? '📝 Simple' : '✨ Enhanced'}
-                  </Text>
-                </Pressable>
                 {parsedResult?.prompt_grade?.suggestions && (
                   <Pressable
                     style={[styles.headerButton, useInteractiveInput && styles.headerButtonActive]}
@@ -334,62 +469,35 @@ export default function App() {
                 )}
                 <Pressable
                   style={styles.headerButton}
-                  onPress={() => setShowExamples(!showExamples)}
+                  onPress={() => setShowPromptLibrary(!showPromptLibrary)}
                 >
                   <Text style={styles.headerButtonText}>
-                    {showExamples ? '✕ Close' : '💡 Examples'}
+                    {showPromptLibrary ? '✕ Close' : '📚 Library'}
                   </Text>
                 </Pressable>
               </View>
             </View>
             
-            
-            {useEnhancedEditor ? (
-              <View style={styles.enhancedEditorWrapper}>
-                {useInteractiveInput && parsedResult?.prompt_grade?.suggestions ? (
-                  <InteractiveTextInput
-                    value={input}
-                    onChangeText={setInput}
-                    placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
-                    suggestions={parsedResult.prompt_grade.suggestions}
-                    showSuggestions={true}
-                    onSuggestionClick={(suggestion, position) => {
-                      console.log('Suggestion clicked:', suggestion.message, 'at position:', position);
-                    }}
-                  />
-                ) : (
-                  <MarkdownTextInput
-                    value={input}
-                    onChangeText={setInput}
-                    placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
-                  />
-                )}
-              </View>
-            ) : (
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  multiline
+            <View style={styles.enhancedEditorWrapper}>
+              {useInteractiveInput && parsedResult?.prompt_grade?.suggestions ? (
+                <InteractiveTextInput
                   value={input}
                   onChangeText={setInput}
-                  placeholder="Type or paste your text here...\n\nTry describing a workflow, project plan, or any text with sequential tasks."
-                  placeholderTextColor="#94a3b8"
+                  placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
+                  suggestions={parsedResult.prompt_grade.suggestions}
+                  showSuggestions={true}
+                  onSuggestionClick={(suggestion, position) => {
+                    console.log('Suggestion clicked:', suggestion.message, 'at position:', position);
+                  }}
                 />
-                <View style={styles.inputFooter}>
-                  <Text style={styles.charCount}>
-                    {input.length} characters • {input.split(' ').filter(w => w).length} words
-                  </Text>
-                  {input.length > 0 && (
-                    <Pressable
-                      style={styles.clearButton}
-                      onPress={() => setInput('')}
-                    >
-                      <Text style={styles.clearButtonText}>Clear</Text>
-                    </Pressable>
-                  )}
-                </View>
-              </View>
-            )}
+              ) : (
+                <MarkdownTextInput
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
+                />
+              )}
+            </View>
                 </View>
 
                 {/* Primary Action - Only Analyze button */}
@@ -404,7 +512,7 @@ export default function App() {
                     }} 
                     disabled={!ready || isAnalyzing}
                   >
-                    <Text style={styles.analyzeButtonText}>{isAnalyzing ? 'Analyzing...' : 'Analyze Text'}</Text>
+                    <Text style={styles.analyzeButtonText}>{isAnalyzing ? 'Synthesizing...' : 'Synthesize with ZeroToken.io'}</Text>
                   </Pressable>
                   
                   {/* Utility Actions Menu */}
@@ -452,6 +560,9 @@ export default function App() {
                   </View>
                 )}
 
+                {/* About ZeroToken */}
+                <AboutZeroToken showAnimation={true} />
+
                 {/* Error */}
                 {error ? (
                   <View style={styles.errorBox}>
@@ -470,9 +581,13 @@ export default function App() {
               <View style={[styles.rightPane, { width: `${(1 - leftPaneWidth) * 100}%` }]}>
                 <View style={styles.rightPaneHeader}>
                   <View style={styles.rightPaneTitleContainer}>
-                    <Text style={styles.rightPaneTitle}>
-                      {rightPaneView === 'library' ? 'Prompt Library' : 'Analysis Results'}
-                    </Text>
+                    <AnimatedText 
+                      text={rightPaneView === 'library' ? '📚 Prompt Library' : '🎆 Analysis Results'}
+                      style={styles.rightPaneTitleAnimated}
+                      delay={50}
+                      typingSpeed={70}
+                      showCursor={false}
+                    />
                     {rightPaneView === 'analysis' && parsedResult && parsedResult.performance_metrics && (
                       <PerformanceCompact performanceData={parsedResult.performance_metrics} />
                     )}
@@ -546,15 +661,12 @@ export default function App() {
                       
                       {/* Analysis content */}
                       <View style={styles.rightPaneContent}>
-                        {isAnalyzing && (
+                        {isAnalyzing ? (
                           <View style={styles.rightPaneLoadingOverlay}>
                             <CompactLoadingProgress isAnalyzing={isAnalyzing} promptText={input} />
                           </View>
-                        )}
-                        {activeTab === 'promptgrade' ? (
-                          <PromptGradeTab data={parsedResult} />
-                        ) : activeTab === 'suggestions' ? (
-                          <SuggestionsTab 
+                        ) : activeTab === 'promptgrade' ? (
+                          <SuggestionsGradeTab 
                             data={parsedResult}
                             onApplySuggestion={(s) => {
                               const scaffold = buildScaffoldFromSuggestion(s, parsedResult);
@@ -602,19 +714,7 @@ export default function App() {
               {/* Input Section with Enhanced Design */}
               <View style={styles.inputSection}>
                 <View style={styles.inputHeader}>
-                  <View style={styles.inputLabelContainer}>
-                    <Text style={styles.sectionLabel}>Text Analysis Input</Text>
-                    <Text style={styles.inputSubtitle}>Enter text to analyze for tasks, complexity, and insights</Text>
-                  </View>
                   <View style={styles.inputHeaderButtons}>
-                    <Pressable
-                      style={styles.headerButton}
-                      onPress={() => setUseEnhancedEditor(!useEnhancedEditor)}
-                    >
-                      <Text style={styles.headerButtonText}>
-                        {useEnhancedEditor ? '📝 Simple' : '✨ Enhanced'}
-                      </Text>
-                    </Pressable>
                     {parsedResult?.prompt_grade?.suggestions && (
                       <Pressable
                         style={[styles.headerButton, useInteractiveInput && styles.headerButtonActive]}
@@ -627,77 +727,41 @@ export default function App() {
                     )}
                     <Pressable
                       style={styles.headerButton}
-                      onPress={() => setShowExamples(!showExamples)}
+                      onPress={() => setShowPromptLibrary(!showPromptLibrary)}
                     >
                       <Text style={styles.headerButtonText}>
-                        {showExamples ? '✕ Close' : '💡 Examples'}
+                        {showPromptLibrary ? '✕ Close' : '📚 Library'}
                       </Text>
                     </Pressable>
                   </View>
                 </View>
                 
-                
-                {useEnhancedEditor ? (
-                  <View style={styles.enhancedEditorWrapper}>
-                    {useInteractiveInput && parsedResult?.prompt_grade?.suggestions ? (
-                      <InteractiveTextInput
-                        value={input}
-                        onChangeText={setInput}
-                        placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
-                        suggestions={parsedResult.prompt_grade.suggestions}
-                        showSuggestions={true}
-                        onSuggestionClick={(suggestion, position) => {
-                          console.log('Suggestion clicked:', suggestion.message, 'at position:', position);
-                        }}
-                      />
-                    ) : (
-                      <MarkdownTextInput
-                        value={input}
-                        onChangeText={setInput}
-                        placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
-                      />
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.inputWrapper}>
-                    <TextInput
-                      style={styles.input}
-                      multiline
+                <View style={styles.enhancedEditorWrapper}>
+                  {useInteractiveInput && parsedResult?.prompt_grade?.suggestions ? (
+                    <InteractiveTextInput
                       value={input}
                       onChangeText={setInput}
-                      placeholder="Type or paste your text here...\n\nTry describing a workflow, project plan, or any text with sequential tasks."
-                      placeholderTextColor="#94a3b8"
+                      placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
+                      suggestions={parsedResult.prompt_grade.suggestions}
+                      showSuggestions={true}
+                      onSuggestionClick={(suggestion, position) => {
+                        console.log('Suggestion clicked:', suggestion.message, 'at position:', position);
+                      }}
                     />
-                    <View style={styles.inputFooter}>
-                      <Text style={styles.charCount}>
-                        {input.length} characters • {input.split(' ').filter(w => w).length} words
-                      </Text>
-                      {input.length > 0 && (
-                        <Pressable
-                          style={styles.clearButton}
-                          onPress={() => setInput('')}
-                        >
-                          <Text style={styles.clearButtonText}>Clear</Text>
-                        </Pressable>
-                      )}
-                    </View>
-                  </View>
-                )}
+                  ) : (
+                    <MarkdownTextInput
+                      value={input}
+                      onChangeText={setInput}
+                      placeholder="Type or paste your text here...\n\nSupports **markdown** formatting for better text organization."
+                    />
+                  )}
+                </View>
               </View>
 
-              {/* Actions */}
-              <View style={styles.row}>
-                <Pressable style={styles.btn} onPress={() => run('uppercase')} disabled={!ready || isAnalyzing}>
-                  <Text style={styles.btnText}>Uppercase</Text>
-                </Pressable>
-                <Pressable style={styles.btn} onPress={() => run('lowercase')} disabled={!ready || isAnalyzing}>
-                  <Text style={styles.btnText}>Lowercase</Text>
-                </Pressable>
-                <Pressable style={styles.btn} onPress={() => run('wordcount')} disabled={!ready || isAnalyzing}>
-                  <Text style={styles.btnText}>Wordcount</Text>
-                </Pressable>
+              {/* Primary Action - Only Analyze button */}
+              <View style={styles.primaryActionContainer}>
                 <Pressable 
-                  style={[styles.btnPrimary, isAnalyzing && styles.btnPrimaryAnalyzing]} 
+                  style={[styles.analyzeButton, isAnalyzing && styles.analyzeButtonDisabled]} 
                   onPress={() => {
                     if (!isAnalyzing && ready) {
                       setIsAnalyzing(true);
@@ -706,9 +770,65 @@ export default function App() {
                   }} 
                   disabled={!ready || isAnalyzing}
                 >
-                  <Text style={styles.btnPrimaryText}>{isAnalyzing ? 'Analyzing...' : 'Analyze'}</Text>
+                  <Text style={styles.analyzeButtonText}>{isAnalyzing ? 'Synthesizing...' : 'Synthesize with ZeroToken.io'}</Text>
                 </Pressable>
+                
+                {/* Utility Actions Menu */}
+                <Pressable 
+                  style={styles.utilityMenuButton}
+                  onPress={() => setShowUtilityMenu(!showUtilityMenu)}
+                >
+                  <Text style={styles.utilityMenuIcon}>⋯</Text>
+                </Pressable>
+                
+                {/* Utility Menu Dropdown */}
+                {showUtilityMenu && (
+                  <>
+                    <Pressable 
+                      style={styles.utilityMenuOverlay}
+                      onPress={() => setShowUtilityMenu(false)}
+                    />
+                    <View style={styles.utilityDropdown}>
+                    <Pressable 
+                      style={styles.utilityOption}
+                      onPress={() => {
+                        setShowUtilityMenu(false);
+                        run('uppercase');
+                      }}
+                      disabled={!ready || isAnalyzing}
+                    >
+                      <Text style={styles.utilityOptionIcon}>🗃</Text>
+                      <Text style={styles.utilityOptionText}>Uppercase</Text>
+                    </Pressable>
+                    <Pressable 
+                      style={styles.utilityOption}
+                      onPress={() => {
+                        setShowUtilityMenu(false);
+                        run('lowercase');
+                      }}
+                      disabled={!ready || isAnalyzing}
+                    >
+                      <Text style={styles.utilityOptionIcon}>abc</Text>
+                      <Text style={styles.utilityOptionText}>Lowercase</Text>
+                    </Pressable>
+                    <Pressable 
+                      style={styles.utilityOption}
+                      onPress={() => {
+                        setShowUtilityMenu(false);
+                        run('wordcount');
+                      }}
+                      disabled={!ready || isAnalyzing}
+                    >
+                      <Text style={styles.utilityOptionIcon}>📈</Text>
+                      <Text style={styles.utilityOptionText}>Word Count</Text>
+                    </Pressable>
+                    </View>
+                  </>
+                )}
               </View>
+
+              {/* About ZeroToken - Compact for mobile */}
+              <AboutZeroToken isCompact={isNarrowScreen} showAnimation={!isNarrowScreen} />
 
               {/* Error */}
               {error ? (
@@ -719,11 +839,86 @@ export default function App() {
 
               {/* Output */}
               <View style={styles.outputHeader}>
-                <Text style={styles.sectionLabel}>Result</Text>
+                <AnimatedText 
+                  text="🎆 Analysis Results" 
+                  style={styles.sectionLabelAnimated}
+                  delay={100}
+                  typingSpeed={80}
+                  showCursor={false}
+                />
                 {parsedResult && parsedResult.performance_metrics && (
                   <PerformanceCompact performanceData={parsedResult.performance_metrics} />
                 )}
               </View>
+              
+              {/* Mobile Quick Access Buttons - Show only when we have analysis results */}
+              {parsedResult && parsedResult.complexity_metrics && isNarrowScreen && (
+                <View style={styles.mobileQuickAccess}>
+                  <AnimatedText 
+                    text="🚀 Quick Access" 
+                    style={styles.quickAccessTitle}
+                    delay={200}
+                    typingSpeed={60}
+                  />
+                  <View style={styles.quickAccessButtons}>
+                    <Pressable 
+                      style={[styles.quickAccessBtn, activeTab === 'promptgrade' && styles.quickAccessBtnActive]}
+                      onPress={() => setActiveTab('promptgrade')}
+                    >
+                      <Text style={styles.quickAccessIcon}>💡</Text>
+                      <AnimatedText 
+                        text="Grade & Tips" 
+                        style={[styles.quickAccessText, activeTab === 'promptgrade' && styles.quickAccessTextActive]}
+                        delay={300}
+                        typingSpeed={40}
+                      />
+                    </Pressable>
+                    
+                    {parsedResult?.task_graph && (
+                      <Pressable 
+                        style={[styles.quickAccessBtn, activeTab === 'taskgraph' && styles.quickAccessBtnActive]}
+                        onPress={() => setActiveTab('taskgraph')}
+                      >
+                        <Text style={styles.quickAccessIcon}>🎯</Text>
+                        <AnimatedText 
+                          text="Tasks" 
+                          style={[styles.quickAccessText, activeTab === 'taskgraph' && styles.quickAccessTextActive]}
+                          delay={400}
+                          typingSpeed={40}
+                        />
+                      </Pressable>
+                    )}
+                    
+                    {(parsedResult?.idea_analysis || parsedResult?.insights) && (
+                      <Pressable 
+                        style={[styles.quickAccessBtn, activeTab === 'insights' && styles.quickAccessBtnActive]}
+                        onPress={() => setActiveTab('insights')}
+                      >
+                        <Text style={styles.quickAccessIcon}>🔍</Text>
+                        <AnimatedText 
+                          text="Insights" 
+                          style={[styles.quickAccessText, activeTab === 'insights' && styles.quickAccessTextActive]}
+                          delay={500}
+                          typingSpeed={40}
+                        />
+                      </Pressable>
+                    )}
+                    
+                    <Pressable 
+                      style={[styles.quickAccessBtn, activeTab === 'metrics' && styles.quickAccessBtnActive]}
+                      onPress={() => setActiveTab('metrics')}
+                    >
+                      <Text style={styles.quickAccessIcon}>📊</Text>
+                      <AnimatedText 
+                        text="Metrics" 
+                        style={[styles.quickAccessText, activeTab === 'metrics' && styles.quickAccessTextActive]}
+                        delay={600}
+                        typingSpeed={40}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+              )}
               
               {/* Tab Navigation - Only show for analyze operation */}
               {parsedResult && parsedResult.complexity_metrics && (
@@ -767,18 +962,22 @@ export default function App() {
               
               {/* Tab Content */}
               <View style={styles.nonIdeResultsContainer}>
-                {isAnalyzing && (
+                {isAnalyzing ? (
                   <View style={styles.nonIdeLoadingOverlay}>
                     <CompactLoadingProgress isAnalyzing={isAnalyzing} promptText={input} />
                   </View>
-                )}
-                {result ? (
-                  parsedResult && parsedResult.complexity_metrics ? (
-                    // Analysis results with tabs
-                    activeTab === 'promptgrade' ? (
-                      <PromptGradeTab data={parsedResult} />
-                    ) : activeTab === 'suggestions' ? (
-                      <SuggestionsTab data={parsedResult} />
+                ) : result && parsedResult && parsedResult.complexity_metrics ? (
+                  // Analysis results with tabs
+                  activeTab === 'promptgrade' ? (
+                      <SuggestionsGradeTab 
+                        data={parsedResult}
+                        onApplySuggestion={(s) => {
+                          const scaffold = buildScaffoldFromSuggestion(s, parsedResult);
+                          if (scaffold) {
+                            setInput((prev) => prev + (prev.endsWith('\n') ? '' : '\n\n') + scaffold);
+                          }
+                        }}
+                      />
                     ) : activeTab === 'taskgraph' ? (
                       parsedResult.task_graph ? (
                         <TaskGraph taskGraphData={parsedResult.task_graph} />
@@ -796,13 +995,19 @@ export default function App() {
                         <Text selectable style={styles.code}>{result}</Text>
                       </ScrollView>
                     ) : null
-                  ) : (
-                    // Simple text results (uppercase, lowercase, wordcount)
-                    <View style={styles.simpleResultContainer}>
-                      <Text style={styles.simpleResultText}>{result}</Text>
-                    </View>
-                  )
-                ) : null}
+                ) : result ? (
+                  // Simple text results (uppercase, lowercase, wordcount)
+                  <View style={styles.simpleResultContainer}>
+                    <Text style={styles.simpleResultText}>{result}</Text>
+                  </View>
+                ) : (
+                  // Empty state
+                  <View style={styles.emptyResults}>
+                    <Text style={styles.emptyResultsText}>
+                      Click "Synthesize with ZeroToken.io" to get started
+                    </Text>
+                  </View>
+                )}
               </View>
             </>
           )}
@@ -813,162 +1018,21 @@ export default function App() {
         <StatusBar style="light" />
       </ScrollView>
 
-      {/* Simple scaffold builder for applying suggestions */}
-      {/* Keep near bottom-level so it's defined before use */}
-      
-      function buildScaffoldFromSuggestion(s, parsed) {
-        const dim = (s?.dimension || '').toLowerCase();
-        const msg = (s?.message || '').toLowerCase();
-        const meta = parsed?.prompt_grade?.suggestion_meta || {};
-        const ptype = (meta?.prompt_type || '').toLowerCase();
-        const includesAny = (str, arr) => arr.some(a => str.includes(a));
-
-        // Targeted scaffolds based on message and prompt type
-        if (includesAny(msg, ['non-functional requirements', 'performance', 'slas', 'security']) || (ptype === 'technical_spec' && dim.includes('context'))) {
-          return `## Context
-- Runtime: <Node.js 20 | Python 3.11>
-- Framework: <Express | FastAPI>
-- Database: <Postgres 15>
-- Hosting: <AWS Lambda>
-- Non-Functional: p95 latency < 200ms, 99.9% uptime, rate-limit 100 rps
-- Security: OAuth2/JWT, input validation, logging + metrics
-`;
-        }
-        
-        if (includesAny(msg, ['interface shapes', 'schemas', 'endpoint contracts']) || (ptype === 'code_generation' && dim.includes('specific'))) {
-          return `## Interfaces / Contracts
-Input (JSON):
-{
-  "id": "string",
-  "name": "string",
-  "status": "active|inactive"
-}
-
-Output (JSON):
-{
-  "ok": true,
-  "errors": []
-}
-`;
-        }
-        
-        if (includesAny(msg, ['deliverables', 'step-by-step', 'steps']) || dim.includes('action')) {
-          return `## Deliverables / Steps
-1) Database schema (SQL or migration)
-2) API endpoints (OpenAPI spec)
-3) Implementation (handlers/services)
-4) Unit tests (covering success + failure cases)
-5) README with run + test instructions
-`;
-        }
-        
-        if (includesAny(msg, ['tests', 'observability', 'logging', 'metrics']) || dim.includes('quality')) {
-          return `## Quality
-- Tests: unit, integration (mock external services)
-- Observability: structured logs, metrics (request_count, error_rate, latency)
-- Error handling: retries (exponential backoff) on 5xx, idempotency
-`;
-        }
-
-        if (includesAny(msg, ['split into phases', 'separate prompts']) || dim.includes('scope')) {
-          return `## Phases
-Phase 1: Ingestion (receive + validate payloads)
-Phase 2: Processing (business rules + persistence)
-Phase 3: Exports (notifications or downstream updates)
-`;
-        }
-
-        // Data analysis specific scaffolds
-        if (ptype === 'data_analysis' && includesAny(msg, ['dataset fields', 'time window', 'filters'])) {
-          return `## Dataset Specification
-- Tables/files: <customers.csv>, <events.csv>
-- Key fields: customer_id, plan, mrr, signup_date, last_active_at, churned_at
-- Time window: <2024-01-01 .. 2024-12-31>
-- Filters: <active customers>, <region = US>
-- Join keys: customers.customer_id = events.customer_id
-`;
-        }
-
-        if (ptype === 'data_analysis' && includesAny(msg, ['analysis methods', 'output artifacts'])) {
-          return `## Analysis Plan
-- EDA: distributions, missingness, correlations
-- Cohorts: by acquisition channel, plan
-- Modeling: logistic regression + random forest (compare AUC/F1)
-- Validation: train/valid split, cross-validation, ROC/PR curves
-- Deliverables: notebook, dashboard (key charts), executive summary PDF
-`;
-        }
-
-        if (ptype === 'data_analysis' && includesAny(msg, ['convert open questions'])) {
-          return `## Questions → Tasks
-- Q: What drives churn most? → T: Fit logit with standardized features; report top coefficients (±CI)
-- Q: Which segments at risk? → T: Predict risk; list top 5 segments by lift
-- Q: What action reduces churn? → T: Simulate retention uplift scenarios and expected ROI
-`;
-        }
-
-        // Creative/Writing brief
-        if ((ptype === 'creative_task' || ptype === 'writing') && includesAny(msg, ['audience', 'tone', "do/don't", 'style'])) {
-          return `## Creative Brief
-- Audience: <who>
-- Tone/Voice: <e.g., practical, friendly>
-- Style: <short sentences, active voice>
-- Do: <short bullets>
-- Don't: <avoid clichés>
-- Key messages: <list>
-`;
-        }
-
-        if ((ptype === 'creative_task' || ptype === 'writing') && includesAny(msg, ['reference examples', 'links'])) {
-          return `## References
-- <https://example.com/reference-1>
-- <https://example.com/reference-2>
-- Notes: emulate structure; adapt tone to Audience above
-`;
-        }
-
-        // Learning curriculum
-        if (ptype === 'learning' && includesAny(msg, ['learning objectives', 'timeline'])) {
-          return `## Learning Objectives & Timeline
-- Objectives: <list three measurable outcomes>
-- Timeline: 4 weeks, 10h/week
-- Prereqs: <list>
-`;
-        }
-
-        if (ptype === 'learning' && includesAny(msg, ['curriculum', 'exercises', 'assessments'])) {
-          return `## Curriculum (4 Weeks)
-Week 1: Basics — theory 15m, code demo, 1 exercise, quiz
-Week 2: Feature engineering + validation — demo, exercise, quiz
-Week 3: Modeling — logit + trees; metrics; project exercise
-Week 4: Deployment basics + wrap-up — capstone + assessment
-`;
-        }
-
-        // General clarifying questions
-        if (includesAny(msg, ['clarifying questions'])) {
-          return `## Clarifying Questions
-1) What are success criteria and constraints?
-2) What inputs/outputs and formats are expected?
-3) What environment and dependencies apply?
-4) Any non-functional requirements (perf, security, SLA)?
-5) Are examples or references available?
-`;
-        }
-
-        // Default fallback: return example if present
-        if (s?.example) {
-          return `## Example
-${s.example}
-`;
-        }
-        return '';
-      }
-      
-      {/* Analysis summary tooltip */}
-      {analysisSummary?.visible && (
+      {/* Analysis Summary Tooltip */}
+      {analysisSummary && (
         <View style={styles.summaryTooltip}>
-          <Text style={styles.summaryText}>{analysisSummary.text}</Text>
+          <View style={styles.summaryContent}>
+            <Text style={styles.summaryText}>{analysisSummary.text}</Text>
+            <Text style={styles.summarySubtitle}>
+              Synthesized suggestions, task graph, insights, and metrics
+            </Text>
+          </View>
+          <Pressable 
+            style={styles.summaryCloseButton}
+            onPress={() => setAnalysisSummary(null)}
+          >
+            <Text style={styles.summaryCloseText}>✕</Text>
+          </Pressable>
         </View>
       )}
 
@@ -1093,6 +1157,16 @@ ${s.example}
         </View>
       </Modal>
 
+      {/* Prompt Library Modal */}
+      <PromptLibrary
+        visible={showPromptLibrary}
+        onClose={() => setShowPromptLibrary(false)}
+        onSelectPrompt={(template) => {
+          setInput(template);
+          setShowPromptLibrary(false);
+        }}
+      />
+
     </SafeAreaView>
   );
 }
@@ -1123,11 +1197,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandIcon: {
+    fontSize: 20,
+  },
   brand: {
     color: '#0f172a',
     fontSize: 20,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  tokensBadge: {
+    backgroundColor: '#0ea5e9',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 8,
+  },
+  tokensBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   statusRow: {
     flexDirection: 'row',
@@ -1277,6 +1371,116 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
     letterSpacing: 0.5,
+  },
+  summaryTooltip: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(17,24,39,0.96)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    zIndex: 9999,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    maxWidth: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  summaryContent: {
+    flex: 1,
+  },
+  summaryText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  summarySubtitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    fontWeight: '500',
+    lineHeight: 14,
+    fontStyle: 'italic',
+  },
+  summaryCloseButton: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  summaryCloseText: {
+    color: '#e5e7eb',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Animated text styles
+  sectionLabelAnimated: {
+    color: '#1e293b',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  rightPaneTitleAnimated: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  // Mobile Quick Access styles
+  mobileQuickAccess: {
+    marginVertical: 16,
+    paddingHorizontal: 16,
+  },
+  quickAccessTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 12,
+  },
+  quickAccessButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quickAccessBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#f8fafc',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickAccessBtnActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+    shadowColor: '#2563eb',
+    shadowOpacity: 0.2,
+  },
+  quickAccessIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  quickAccessText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  quickAccessTextActive: {
+    color: '#ffffff',
+    fontWeight: '600',
   },
   inputWrapper: {
     borderWidth: 2,
@@ -1667,6 +1871,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     fontWeight: 'bold',
+  },
+  utilityMenuOverlay: {
+    position: 'absolute',
+    top: -1000,
+    left: -1000,
+    right: -1000,
+    bottom: -1000,
+    zIndex: 999,
+  },
+  utilityDropdown: {
+    position: 'absolute',
+    right: 0,
+    bottom: 50,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 150,
+    zIndex: 1000,
+  },
+  utilityOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  utilityOptionIcon: {
+    fontSize: 16,
+    marginRight: 12,
+    width: 20,
+    textAlign: 'center',
+  },
+  utilityOptionText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
   },
   utilityMenu: {
     position: 'absolute',
