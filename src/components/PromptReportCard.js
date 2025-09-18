@@ -106,16 +106,60 @@ const PromptReportCard = ({ visible, analysisData, originalPrompt, onClose }) =>
       let dataUrl;
       
       if (Platform.OS === 'web') {
-        // Use html-to-image for web
-        dataUrl = await htmlToImage.toPng(reportRef.current, {
+        // Get the actual content dimensions for full capture
+        const element = reportRef.current;
+        
+        // Store original styles to restore later
+        const originalStyle = {
+          maxWidth: element.style.maxWidth,
+          maxHeight: element.style.maxHeight,
+          overflow: element.style.overflow,
+          transform: element.style.transform,
+          position: element.style.position
+        };
+        
+        // Temporarily adjust styles for optimal capture
+        element.style.maxWidth = 'none';
+        element.style.maxHeight = 'none';
+        element.style.overflow = 'visible';
+        element.style.transform = 'none';
+        element.style.position = 'static';
+        
+        // Allow the DOM to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const scrollHeight = element.scrollHeight;
+        const scrollWidth = element.scrollWidth;
+        
+        // Use html-to-image for web with dynamic dimensions
+        dataUrl = await htmlToImage.toPng(element, {
           quality: 1.0,
           pixelRatio: 2, // Higher resolution
-          width: 800,
-          height: 1000,
+          width: Math.max(800, scrollWidth), // Use actual width or minimum 800px
+          height: scrollHeight, // Use full scroll height
           style: {
             transform: 'scale(1)',
-            transformOrigin: 'top left'
+            transformOrigin: 'top left',
+            maxHeight: 'none',
+            maxWidth: 'none',
+            overflow: 'visible',
+            position: 'static'
+          },
+          backgroundColor: '#ffffff', // Ensure white background
+          useCORS: true, // Handle any external resources
+          allowTaint: true, // Allow cross-origin images if any
+          filter: (node) => {
+            // Exclude certain elements that might interfere with capture
+            if (node.classList && node.classList.contains('exclude-from-capture')) {
+              return false;
+            }
+            return true;
           }
+        });
+        
+        // Restore original styles
+        Object.keys(originalStyle).forEach(key => {
+          element.style[key] = originalStyle[key];
         });
         
         // Trigger download
@@ -135,7 +179,16 @@ const PromptReportCard = ({ visible, analysisData, originalPrompt, onClose }) =>
       }
     } catch (error) {
       console.error('Error generating report:', error);
-      Alert.alert('Error', 'Failed to generate report. Please try again.');
+      
+      // More specific error messages
+      let errorMessage = 'Failed to generate report. Please try again.';
+      if (error.message && error.message.includes('html-to-image')) {
+        errorMessage = 'Unable to capture the full report. Try refreshing the page and attempting the download again.';
+      } else if (error.message && error.message.includes('Canvas')) {
+        errorMessage = 'Browser canvas limitation encountered. The report may be too large. Try downloading on a desktop browser.';
+      }
+      
+      Alert.alert('Download Error', errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -182,7 +235,7 @@ const PromptReportCard = ({ visible, analysisData, originalPrompt, onClose }) =>
             disabled={isGenerating}
           >
             <Text style={styles.generateButtonText}>
-              {isGenerating ? 'Downloading...' : '📄 Download Report'}
+              {isGenerating ? 'Capturing Full Report...' : '📄 Download Full Report'}
             </Text>
           </Pressable>
           <Pressable style={styles.closeButton} onPress={onClose}>
