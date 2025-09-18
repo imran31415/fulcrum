@@ -216,6 +216,107 @@ const PromptReportCard = ({ visible, analysisData, originalPrompt, onClose }) =>
 
   const { prompt_grade, task_graph, complexity_metrics, performance_metrics } = analysisData;
 
+  // Mobile-optimized abbreviated version
+  if (isMobile) {
+    return (
+      <Modal
+        visible={visible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={onClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.mobileContainer}>
+            {/* Mobile Header */}
+            <View style={styles.mobileHeader}>
+              <Text style={styles.mobileHeaderTitle}>📊 Analysis Complete!</Text>
+              <Pressable style={styles.mobileCloseButton} onPress={onClose}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView 
+              style={styles.mobileScrollView}
+              contentContainerStyle={styles.mobileScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Mobile Grade Summary */}
+              <View style={styles.mobileGradeSection}>
+                <View style={styles.mobileGradeCard}>
+                  <View style={[
+                    styles.mobileGradeBadge, 
+                    { backgroundColor: getGradeColor(prompt_grade.overall_grade?.grade) }
+                  ]}>
+                    <Text style={styles.mobileGradeText}>{prompt_grade.overall_grade?.grade || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.mobileGradeInfo}>
+                    <Text style={styles.mobileGradeScore}>
+                      {prompt_grade.overall_grade?.score?.toFixed(0) || 'N/A'}/100
+                    </Text>
+                    <Text style={styles.mobileGradeSummary}>
+                      {typeof prompt_grade.overall_grade?.summary === 'string' ? 
+                       truncateText(prompt_grade.overall_grade.summary, 120) :
+                       'Analysis complete'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Mobile Key Metrics */}
+              <View style={styles.mobileMetricsSection}>
+                <Text style={styles.mobileSectionTitle}>📈 Key Insights</Text>
+                <View style={styles.mobileMetricsGrid}>
+                  <View style={styles.mobileMetricCard}>
+                    <Text style={styles.mobileMetricValue}>{originalPrompt ? originalPrompt.split(' ').length : 0}</Text>
+                    <Text style={styles.mobileMetricLabel}>Words</Text>
+                  </View>
+                  <View style={styles.mobileMetricCard}>
+                    <Text style={styles.mobileMetricValue}>{task_graph?.total_tasks || 0}</Text>
+                    <Text style={styles.mobileMetricLabel}>Tasks</Text>
+                  </View>
+                  <View style={styles.mobileMetricCard}>
+                    <Text style={styles.mobileMetricValue}>{prompt_grade.suggestions?.length || 0}</Text>
+                    <Text style={styles.mobileMetricLabel}>Tips</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Mobile Top Suggestion */}
+              {prompt_grade.suggestions && prompt_grade.suggestions.length > 0 && (
+                <View style={styles.mobileSuggestionSection}>
+                  <Text style={styles.mobileSectionTitle}>💡 Top Suggestion</Text>
+                  <View style={styles.mobileSuggestionCard}>
+                    <Text style={styles.mobileSuggestionText}>
+                      {truncateText(prompt_grade.suggestions[0].message, 150)}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Mobile Actions */}
+              <View style={styles.mobileActionsSection}>
+                <Pressable 
+                  style={[styles.mobileDownloadButton, isGenerating && styles.mobileDownloadButtonDisabled]}
+                  onPress={generateReport}
+                  disabled={isGenerating}
+                >
+                  <Text style={styles.mobileDownloadButtonText}>
+                    {isGenerating ? '📱 Generating...' : '📄 Download Full Report'}
+                  </Text>
+                </Pressable>
+                
+                <Text style={styles.mobileFooterText}>
+                  💡 Explore detailed analysis in the tabs above for comprehensive insights
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  // Desktop version (unchanged)
   return (
     <Modal
       visible={visible}
@@ -1531,6 +1632,185 @@ const styles = StyleSheet.create({
   footerSubtext: {
     fontSize: 11,
     color: '#94a3b8',
+  },
+  
+  // Mobile-optimized styles
+  mobileContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginHorizontal: 12,
+    marginVertical: 40,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  mobileHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#f8fafc',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  mobileHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b',
+    flex: 1,
+  },
+  mobileCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  mobileScrollView: {
+    flex: 1,
+  },
+  mobileScrollContent: {
+    padding: 20,
+    paddingBottom: 24,
+  },
+  mobileGradeSection: {
+    marginBottom: 24,
+  },
+  mobileGradeCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  mobileGradeBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  mobileGradeText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  mobileGradeInfo: {
+    flex: 1,
+  },
+  mobileGradeScore: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  mobileGradeSummary: {
+    fontSize: 14,
+    color: '#64748b',
+    lineHeight: 20,
+  },
+  mobileMetricsSection: {
+    marginBottom: 24,
+  },
+  mobileSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 16,
+  },
+  mobileMetricsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  mobileMetricCard: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  mobileMetricValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2563eb',
+    marginBottom: 4,
+  },
+  mobileMetricLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  mobileSuggestionSection: {
+    marginBottom: 24,
+  },
+  mobileSuggestionCard: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2563eb',
+  },
+  mobileSuggestionText: {
+    fontSize: 14,
+    color: '#1e40af',
+    lineHeight: 20,
+  },
+  mobileActionsSection: {
+    alignItems: 'center',
+  },
+  mobileDownloadButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+    marginBottom: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  mobileDownloadButtonDisabled: {
+    backgroundColor: '#94a3b8',
+    opacity: 0.8,
+  },
+  mobileDownloadButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  mobileFooterText: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 8,
   },
 });
 
