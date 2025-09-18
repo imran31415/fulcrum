@@ -1,5 +1,5 @@
 // Auto-generated mobile HTML payload for React Native WebView - DO NOT EDIT
-// Generated on: Wed Sep 17 17:10:48 PDT 2025
+// Generated on: Wed Sep 17 18:05:24 PDT 2025
 
 export const mobileHtml = `<!doctype html>
 <meta charset="utf-8" />

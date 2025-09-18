@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
+const isNarrowScreen = screenWidth < 768;
 
 // Priority color mapping
 const getPriorityColor = (priority) => {
@@ -119,7 +120,7 @@ export default function SuggestionsTab({ data }) {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header Stats */}
-      <View style={styles.headerCard}>
+      <View style={[styles.headerCard, isNarrowScreen && styles.headerCardMobile]}>
         <Text style={styles.headerTitle}>Improvement Suggestions</Text>
         <Text style={styles.headerSubtitle}>
           Actionable recommendations to enhance your prompt
@@ -160,7 +161,7 @@ export default function SuggestionsTab({ data }) {
       </View>
 
       {/* Suggestions by Priority */}
-      <View style={styles.suggestionsContainer}>
+      <View style={[styles.suggestionsContainer, isNarrowScreen && styles.suggestionsContainerMobile]}>
         {renderSuggestionGroup('High Priority - Address These First', highPriority, '#F44336')}
         {renderSuggestionGroup('Medium Priority - Consider Improving', mediumPriority, '#FF9800')}
         {renderSuggestionGroup('Low Priority - Nice to Have', lowPriority, '#4CAF50')}
@@ -209,6 +210,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  headerCardMobile: {
+    margin: 8,
+    marginHorizontal: 4,
+    borderRadius: 12,
+    padding: 16,
   },
   headerTitle: {
     fontSize: 20,
@@ -275,6 +282,10 @@ const styles = StyleSheet.create({
   },
   suggestionsContainer: {
     paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  suggestionsContainerMobile: {
+    paddingHorizontal: 4,
     paddingBottom: 20,
   },
   priorityGroup: {

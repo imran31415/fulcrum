@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
+const isNarrowScreen = screenWidth < 768;
 
 const InteractiveTextInput = ({ 
   value, 
@@ -332,7 +333,7 @@ const InteractiveTextInput = ({
 
   const ToolbarButton = ({ onPress, children, label, active = false }) => (
     <TouchableOpacity
-      style={[styles.toolbarButton, active && styles.toolbarButtonActive]}
+      style={[styles.toolbarButton, isNarrowScreen && styles.toolbarButtonMobile, active && styles.toolbarButtonActive]}
       onPress={onPress}
       accessibilityLabel={label}
     >
@@ -345,7 +346,7 @@ const InteractiveTextInput = ({
   return (
     <View style={styles.container}>
       {/* Enhanced Toolbar */}
-      <View style={styles.toolbar}>
+      <View style={[styles.toolbar, isNarrowScreen && styles.toolbarMobile]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.toolbarSection}>
             <ToolbarButton onPress={() => insertMarkdown('**', '**')} label="Bold">
@@ -457,7 +458,7 @@ const InteractiveTextInput = ({
         {/* Text Input */}
         <TextInput
           ref={inputRef}
-          style={[styles.mainTextInput, style]}
+          style={[styles.mainTextInput, isNarrowScreen && styles.mainTextInputMobile, style]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -629,6 +630,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
+    width: '100%',
+    maxWidth: '100%',
   },
   toolbar: {
     backgroundColor: '#fafbfc',
@@ -636,6 +639,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e7eb',
     paddingVertical: 12,
     paddingHorizontal: 16,
+  },
+  toolbarMobile: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   toolbarSection: {
     flexDirection: 'row',
@@ -657,6 +664,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.02,
     shadowRadius: 2,
     elevation: 1,
+  },
+  toolbarButtonMobile: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    marginRight: 4,
+    minWidth: 36,
+    minHeight: 36,
   },
   toolbarButtonActive: {
     backgroundColor: '#3b82f6',
@@ -753,6 +767,24 @@ const styles = StyleSheet.create({
       android: 'sans-serif',
       default: 'system-ui',
     }),
+    width: '100%',
+    maxWidth: '100%',
+    // Remove overflow hidden to allow scrolling on web
+    ...(Platform.OS === 'web' ? {
+      overflow: 'auto',
+      resize: 'none',
+    } : {
+      overflow: 'hidden',
+    }),
+    wordWrap: 'break-word',
+    whiteSpace: 'pre-wrap',
+  },
+  mainTextInputMobile: {
+    padding: 16,
+    paddingLeft: 8,
+    minHeight: 200,
+    fontSize: 16,
+    lineHeight: 24,
   },
   statusBar: {
     flexDirection: 'row',

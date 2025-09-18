@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import SuggestionsTab from './SuggestionsTab';
 import PromptGradeTab from './PromptGradeTab';
+
+const { width: screenWidth } = Dimensions.get('window');
+const isNarrowScreen = screenWidth < 768;
 
 const SuggestionsGradeTab = ({ data, onApplySuggestion }) => {
   const hasSuggestions = data?.prompt_grade?.suggestions?.length > 0;
@@ -11,7 +14,7 @@ const SuggestionsGradeTab = ({ data, onApplySuggestion }) => {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Suggestions Section */}
       {hasSuggestions && (
-        <View style={styles.section}>
+        <View style={[styles.section, isNarrowScreen && styles.sectionMobile]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>💡 Suggestions</Text>
             <Text style={styles.sectionSubtitle}>
@@ -28,7 +31,7 @@ const SuggestionsGradeTab = ({ data, onApplySuggestion }) => {
 
       {/* Grade Section */}
       {hasGrade && (
-        <View style={[styles.section, hasSuggestions && styles.sectionWithMargin]}>
+        <View style={[styles.section, isNarrowScreen && styles.sectionMobile, hasSuggestions && styles.sectionWithMargin]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>📊 Grade</Text>
             <Text style={styles.sectionSubtitle}>
@@ -60,6 +63,10 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  sectionMobile: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
   sectionWithMargin: {
     marginTop: 16,

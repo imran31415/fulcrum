@@ -169,12 +169,6 @@ export const EnhancedResultDisplay = ({ data }) => {
       emoji: '🔡',
       priority: 17
     },
-    {
-      keys: ['performance_metrics', 'performance'],
-      title: 'Performance Metrics',
-      emoji: '⚡',
-      priority: 18
-    }
   ];
 
   const sections = [];

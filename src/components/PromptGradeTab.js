@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Dimensions } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
+const isNarrowScreen = screenWidth < 768;
 
 // Color scheme for grades
 const getGradeColor = (grade) => {
@@ -42,7 +43,7 @@ export default function PromptGradeTab({ data }) {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Overall Grade Header */}
-      <View style={styles.overallGradeCard}>
+      <View style={[styles.overallGradeCard, isNarrowScreen && styles.overallGradeCardMobile]}>
         <View style={styles.overallGradeHeader}>
           <View style={styles.gradeCircle}>
             <Text style={[styles.letterGrade, { color: overallGrade.grade_color }]}>
@@ -81,7 +82,7 @@ export default function PromptGradeTab({ data }) {
 
       {/* Dimensional Grades */}
       <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+        <View style={[styles.sectionHeader, isNarrowScreen && styles.sectionHeaderMobile]}>
           <Text style={styles.sectionIcon}>📐</Text>
           <Text style={styles.sectionTitle}>Dimensional Analysis</Text>
         </View>
@@ -113,7 +114,7 @@ export default function PromptGradeTab({ data }) {
       {/* Strengths and Weaknesses */}
       <View style={styles.strengthsWeaknessesContainer}>
         <View style={[styles.section, styles.halfSection]}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, isNarrowScreen && styles.sectionHeaderMobile]}>
             <Text style={styles.sectionIcon}>✅</Text>
             <Text style={styles.sectionTitle}>Strengths</Text>
           </View>
@@ -128,7 +129,7 @@ export default function PromptGradeTab({ data }) {
         </View>
 
         <View style={[styles.section, styles.halfSection]}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, isNarrowScreen && styles.sectionHeaderMobile]}>
             <Text style={styles.sectionIcon}>⚠️</Text>
             <Text style={styles.sectionTitle}>Weak Areas</Text>
           </View>
@@ -166,7 +167,7 @@ const GradeDimensionCard = ({ name, dimension, index, isExpanded, onToggleExpand
   const isComplexityMetric = name === 'Task Complexity';
 
   return (
-    <View style={styles.dimensionCard}>
+    <View style={[styles.dimensionCard, isNarrowScreen && styles.dimensionCardMobile]}>
       <Pressable onPress={onToggleExpand} style={styles.dimensionHeader}>
         <View style={styles.dimensionInfo}>
           <Text style={styles.dimensionIcon}>{getIcon(name)}</Text>
@@ -282,6 +283,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  overallGradeCardMobile: {
+    margin: 8,
+    marginHorizontal: 4,
+    borderRadius: 12,
+    padding: 16,
+  },
   overallGradeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -372,6 +379,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
   },
+  sectionHeaderMobile: {
+    marginHorizontal: 4,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
   sectionIcon: {
     fontSize: 20,
     marginRight: 12,
@@ -399,6 +411,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 4,
     elevation: 1,
+  },
+  dimensionCardMobile: {
+    marginHorizontal: 4,
+    marginVertical: 6,
+    borderRadius: 8,
+    padding: 12,
   },
   dimensionHeader: {
     flexDirection: 'row',

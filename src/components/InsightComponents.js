@@ -1,5 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
+
+const { width: screenWidth } = Dimensions.get('window');
+const isNarrowScreen = screenWidth < 768;
 
 // Component for displaying thought type distribution
 export const ThoughtTypeDistribution = ({ distribution }) => {
@@ -20,7 +23,7 @@ export const ThoughtTypeDistribution = ({ distribution }) => {
   const total = thoughtTypes.reduce((sum, type) => sum + (data[type.key] || 0), 0);
   
   return (
-    <View style={styles.distributionCard}>
+    <View style={[styles.distributionCard, isNarrowScreen && styles.distributionCardMobile]}>
       <Text style={styles.distributionTitle}>🎯 Thought Type Distribution</Text>
       
       <View style={styles.dominantType}>
@@ -71,7 +74,7 @@ export const QuestionAnalysisCard = ({ analysis }) => {
   const [showQuestions, setShowQuestions] = React.useState(false);
   
   return (
-    <View style={styles.analysisCard}>
+    <View style={[styles.analysisCard, isNarrowScreen && styles.analysisCardMobile]}>
       <Text style={styles.analysisTitle}>❓ Question Analysis</Text>
       
       <View style={styles.statsRow}>
@@ -136,8 +139,8 @@ export const FactualContentCard = ({ content }) => {
   const [showFacts, setShowFacts] = React.useState(false);
   
   return (
-    <View style={styles.analysisCard}>
-      <Text style={styles.analysisTitle}>📊 Factual Content Analysis</Text>
+    <View style={[styles.analysisCard, isNarrowScreen && styles.analysisCardMobile]}>
+      <Text style={styles.analysisTitle}>📁 Factual Content Analysis</Text>
       
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
@@ -473,6 +476,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
+  distributionCardMobile: {
+    margin: 6,
+    marginHorizontal: 4,
+    padding: 12,
+  },
   distributionTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -578,6 +586,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
+  analysisCardMobile: {
+    margin: 6,
+    marginHorizontal: 4,
+    padding: 12,
+  },
   analysisTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -679,6 +692,11 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+  },
+  clustersCardMobile: {
+    margin: 6,
+    marginHorizontal: 4,
+    padding: 12,
   },
   clustersTitle: {
     fontSize: 16,
@@ -827,6 +845,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
+  qualityCardMobile: {
+    margin: 6,
+    marginHorizontal: 4,
+    padding: 12,
+  },
   qualityTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -901,6 +924,11 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+  },
+  summaryCardMobile: {
+    margin: 6,
+    marginHorizontal: 4,
+    padding: 12,
   },
   summaryTitle: {
     fontSize: 16,

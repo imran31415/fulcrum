@@ -8,7 +8,11 @@ import {
   TouchableOpacity,
   Platform,
   KeyboardAvoidingView,
+  Dimensions,
 } from 'react-native';
+
+const { width: screenWidth } = Dimensions.get('window');
+const isNarrowScreen = screenWidth < 768;
 
 const MarkdownTextInput = ({ value, onChangeText, placeholder, style }) => {
   const [showPreview, setShowPreview] = useState(false);
@@ -79,7 +83,7 @@ const MarkdownTextInput = ({ value, onChangeText, placeholder, style }) => {
   // Toolbar buttons
   const ToolbarButton = ({ onPress, children, label }) => (
     <TouchableOpacity
-      style={styles.toolbarButton}
+      style={[styles.toolbarButton, isNarrowScreen && styles.toolbarButtonMobile]}
       onPress={onPress}
       accessibilityLabel={label}
     >
@@ -90,7 +94,7 @@ const MarkdownTextInput = ({ value, onChangeText, placeholder, style }) => {
   return (
     <View style={styles.container}>
       {/* Markdown Toolbar */}
-      <View style={styles.toolbar}>
+      <View style={[styles.toolbar, isNarrowScreen && styles.toolbarMobile]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <ToolbarButton
             onPress={() => insertMarkdown('**', '**')}
@@ -169,7 +173,7 @@ const MarkdownTextInput = ({ value, onChangeText, placeholder, style }) => {
       {/* Main Text Input */}
       <TextInput
         ref={inputRef}
-        style={[styles.mainTextInput, style]}
+        style={[styles.mainTextInput, isNarrowScreen && styles.mainTextInputMobile, style]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -201,6 +205,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     overflow: 'hidden',
+    width: '100%',
+    maxWidth: '100%',
   },
   toolbar: {
     backgroundColor: '#f8fafc',
@@ -208,6 +214,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e7eb',
     paddingVertical: 10,
     paddingHorizontal: 16, // Increased for better consistency
+  },
+  toolbarMobile: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   toolbarButton: {
     paddingHorizontal: 12,
@@ -219,6 +229,13 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     minWidth: 32,
     alignItems: 'center',
+  },
+  toolbarButtonMobile: {
+    paddingHorizontal: 10,
+    paddingVertical: 8, // Larger touch target on mobile
+    marginHorizontal: 1,
+    minWidth: 36,
+    minHeight: 36, // Better touch target size
   },
   toolbarButtonText: {
     fontSize: 14,
@@ -244,6 +261,23 @@ const styles = StyleSheet.create({
       android: 'sans-serif',
       default: 'System',
     }),
+    width: '100%',
+    maxWidth: '100%',
+    // Remove overflow hidden to allow scrolling on web
+    ...(Platform.OS === 'web' ? {
+      overflow: 'auto',
+      resize: 'none',
+    } : {
+      overflow: 'hidden', 
+    }),
+    wordWrap: 'break-word',
+    whiteSpace: 'pre-wrap',
+  },
+  mainTextInputMobile: {
+    padding: 16, // Reduced padding on mobile for more space
+    minHeight: 200, // Smaller min height on mobile
+    fontSize: 16, // Slightly larger font for better mobile readability
+    lineHeight: 24,
   },
   preview: {
     flex: 1,

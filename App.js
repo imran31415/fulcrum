@@ -22,6 +22,7 @@ import TaskGraph from './components/TaskGraph';
 import PromptGradeTab from './src/components/PromptGradeTab';
 import SuggestionsTab from './src/components/SuggestionsTab';
 import SuggestionsGradeTab from './src/components/SuggestionsGradeTab';
+import PerformanceTab from './src/components/PerformanceTab';
 import LoadingProgress from './src/components/LoadingProgress';
 import CompactLoadingProgress from './src/components/CompactLoadingProgress';
 import MarkdownTextInput from './src/components/MarkdownTextInput';
@@ -291,6 +292,11 @@ export default function App() {
       tabs.push({ key: 'insights', label: '🔍 Insights', icon: '🔍' });
     }
     
+    // Add Performance tab if we have performance metrics
+    if (parsedResult?.performance_metrics !== undefined) {
+      tabs.push({ key: 'performance', label: '⚡ Performance', icon: '⚡' });
+    }
+    
     tabs.push({ key: 'metrics', label: '📊 Metrics', icon: '📊' });
     tabs.push({ key: 'raw', label: '🔧 Raw', icon: '🔧' });
     
@@ -418,7 +424,7 @@ export default function App() {
       <ScrollView 
         ref={scrollViewRef}
         style={styles.container} 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, isNarrowScreen && styles.scrollContentMobile]}
       >
         {/* Mount native WebView bridge invisibly on iOS/Android */}
         {Platform.OS !== 'web' ? <WasmProvider /> : null}
@@ -721,6 +727,8 @@ export default function App() {
                           )
                         ) : activeTab === 'insights' ? (
                           <InsightsTab data={parsedResult} />
+                        ) : activeTab === 'performance' ? (
+                          <PerformanceTab data={parsedResult} />
                         ) : activeTab === 'metrics' ? (
                           <EnhancedResultDisplay data={parsedResult} />
                         ) : activeTab === 'raw' ? (
@@ -980,6 +988,22 @@ export default function App() {
                       </Pressable>
                     )}
                     
+                    {/* Performance Button for Mobile */}
+                    {parsedResult?.performance_metrics && (
+                      <Pressable 
+                        style={[styles.quickAccessBtn, activeTab === 'performance' && styles.quickAccessBtnActive]}
+                        onPress={() => setActiveTab('performance')}
+                      >
+                        <Text style={styles.quickAccessIcon}>⚡</Text>
+                        <AnimatedText 
+                          text="Performance" 
+                          style={[styles.quickAccessText, activeTab === 'performance' && styles.quickAccessTextActive]}
+                          delay={600}
+                          typingSpeed={40}
+                        />
+                      </Pressable>
+                    )}
+                    
                     <Pressable 
                       style={[styles.quickAccessBtn, activeTab === 'metrics' && styles.quickAccessBtnActive]}
                       onPress={() => setActiveTab('metrics')}
@@ -988,7 +1012,7 @@ export default function App() {
                       <AnimatedText 
                         text="Metrics" 
                         style={[styles.quickAccessText, activeTab === 'metrics' && styles.quickAccessTextActive]}
-                        delay={600}
+                        delay={650}
                         typingSpeed={40}
                       />
                     </Pressable>
@@ -1080,6 +1104,8 @@ export default function App() {
                       )
                     ) : activeTab === 'insights' ? (
                       <InsightsTab data={parsedResult} />
+                    ) : activeTab === 'performance' ? (
+                      <PerformanceTab data={parsedResult} />
                     ) : activeTab === 'metrics' ? (
                       <EnhancedResultDisplay data={parsedResult} />
                     ) : activeTab === 'raw' ? (
@@ -1268,6 +1294,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 8, // Reduced padding for more screen space
     paddingTop: 8,
+    paddingBottom: 20,
+  },
+  scrollContentMobile: {
+    paddingHorizontal: 4, // Minimal padding on mobile for full width usage
+    paddingTop: 4,
     paddingBottom: 20,
   },
   content: {
@@ -1606,7 +1637,9 @@ const styles = StyleSheet.create({
     width: '100%',
     flex: 1,
     minHeight: 400, // Increased to 400px for web
-    maxHeight: 600, // Increased max height to match
+    maxHeight: Platform.OS === 'web' ? 'none' : 600, // Remove height restriction on web
+    overflow: Platform.OS === 'web' ? 'visible' : 'hidden', // Allow overflow on web
+    maxWidth: '100%',
   },
   // Mobile specific enhanced editor wrapper
   enhancedEditorWrapperMobile: {
@@ -1615,6 +1648,8 @@ const styles = StyleSheet.create({
     maxHeight: 400, // Reasonable max height for mobile
     flex: 1, // Allow flex grow for proper sizing
     flexShrink: 0, // Prevent unwanted shrinking
+    overflow: 'hidden',
+    maxWidth: '100%',
   },
   // Mobile specific text input styles
   textInputMobile: {
