@@ -904,7 +904,7 @@ export default function App() {
               ) : null}
 
               {/* Output */}
-              <View style={styles.outputHeader}>
+              <View style={[styles.outputHeader, isNarrowScreen && styles.outputHeaderMobile]}>
                 <AnimatedText 
                   text="🎆 Analysis Results" 
                   style={styles.sectionLabelAnimated}
@@ -912,13 +912,13 @@ export default function App() {
                   typingSpeed={80}
                   showCursor={false}
                 />
-                <View style={styles.outputHeaderRight}>
+                <View style={[styles.outputHeaderRight, isNarrowScreen && styles.outputHeaderRightMobile]}>
                   {parsedResult && parsedResult.prompt_grade && (
                     <Pressable 
-                      style={styles.reportCardButton}
+                      style={[styles.reportCardButton, isNarrowScreen && styles.reportCardButtonMobile]}
                       onPress={() => setShowReportCard(true)}
                     >
-                      <Text style={styles.reportCardButtonText}>📄 View Report Card</Text>
+                      <Text style={[styles.reportCardButtonText, isNarrowScreen && styles.reportCardButtonTextMobile]}>📄 {isNarrowScreen ? 'Report' : 'View Report Card'}</Text>
                     </Pressable>
                   )}
                   {parsedResult && parsedResult.performance_metrics && (
@@ -1626,11 +1626,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 2,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  outputHeaderMobile: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 8,
   },
   outputHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flexWrap: 'wrap',
+  },
+  outputHeaderRightMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    flexWrap: 'wrap',
+    width: '100%',
   },
   reportCardButton: {
     backgroundColor: '#2563eb',
@@ -1647,6 +1664,25 @@ const styles = StyleSheet.create({
   reportCardButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  reportCardButtonMobile: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+    minWidth: 100,
+    flexShrink: 1,
+  },
+  reportCardButtonTextMobile: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
   },
