@@ -197,6 +197,8 @@ docker-push-latest: ## Push only the latest tag (faster)
 k8s-apply: ## Apply Kubernetes manifests
 	@echo "$(GREEN)Applying Kubernetes manifests...$(NC)"
 	kubectl apply -k $(KUSTOMIZE_DIR)/
+	@echo "$(GREEN)Restarting deployment to pull new image...$(NC)"
+	kubectl -n $(NAMESPACE) rollout restart deployment/$(APP_NAME)-app
 	@echo "$(GREEN)Waiting for deployment rollout...$(NC)"
 	kubectl -n $(NAMESPACE) rollout status deployment/$(APP_NAME)-app --timeout=300s
 	@echo "$(GREEN)✅ Kubernetes deployment complete$(NC)"

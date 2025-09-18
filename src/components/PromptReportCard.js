@@ -93,9 +93,13 @@ const truncateText = (text, maxLength = 200) => {
 
 const PromptReportCard = ({ visible, analysisData, originalPrompt, onClose }) => {
   const reportRef = useRef(null);
+  const mobileReportRef = useRef(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const generateReport = async () => {
-    if (!reportRef.current) {
+    // Use mobile report ref for mobile, regular report ref for desktop
+    const targetRef = isMobile ? mobileReportRef : reportRef;
+    
+    if (!targetRef.current) {
       Alert.alert('Error', 'Report not ready for generation');
       return;
     }
@@ -107,7 +111,7 @@ const PromptReportCard = ({ visible, analysisData, originalPrompt, onClose }) =>
       
       if (Platform.OS === 'web') {
         // Get the actual content dimensions for full capture
-        const element = reportRef.current;
+        const element = targetRef.current;
         
         // Store original styles to restore later
         const originalStyle = {
@@ -310,6 +314,127 @@ const PromptReportCard = ({ visible, analysisData, originalPrompt, onClose }) =>
                 </Text>
               </View>
             </ScrollView>
+            
+            {/* Hidden full report for mobile download generation */}
+            <View 
+              ref={mobileReportRef} 
+              style={[styles.reportContainer, { 
+                position: 'absolute', 
+                left: -9999, 
+                opacity: 0, 
+                width: 800,
+                pointerEvents: 'none' 
+              }]}
+            >
+              {/* Welcome Header */}
+              <View style={styles.welcomeHeader}>
+                <Text style={styles.welcomeTitle}>🎉 Here's Your Generated Prompt Report Summary!</Text>
+                <Text style={styles.welcomeSubtitle}>
+                  This comprehensive report contains your prompt analysis results. You can also explore additional metrics and insights in the main analysis tabs outside this report.
+                </Text>
+              </View>
+              
+              {/* Report Header */}
+              <View style={styles.reportHeader}>
+                <View style={styles.brandSection}>
+                  <Text style={styles.brandIcon}>🎯</Text>
+                  <Text style={styles.brandText}>ZeroToken.io</Text>
+                </View>
+                <Text style={styles.reportTitle}>Prompt Analysis Report</Text>
+                <Text style={styles.reportDate}>Generated on {formatDate()}</Text>
+              </View>
+
+              {/* Overall Grade Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>📊 Overall Assessment</Text>
+                <View style={styles.gradeCard}>
+                  <View style={styles.gradeHeader}>
+                    <View style={[
+                      styles.gradeBadge, 
+                      { backgroundColor: getGradeColor(prompt_grade.overall_grade?.grade) }
+                    ]}>
+                      <Text style={styles.gradeText}>{prompt_grade.overall_grade?.grade || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.gradeInfo}>
+                      <Text style={styles.gradeScore}>
+                        {prompt_grade.overall_grade?.score?.toFixed(1) || 'N/A'}/100
+                      </Text>
+                      <Text style={styles.gradeSummary}>
+                        {typeof prompt_grade.overall_grade?.summary === 'string' ? 
+                         prompt_grade.overall_grade.summary :
+                         typeof prompt_grade.overall_grade?.summary === 'object' ?
+                         JSON.stringify(prompt_grade.overall_grade.summary) :
+                         'No summary available'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Original Prompt */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>📝 Analyzed Prompt</Text>
+                <View style={styles.promptCard}>
+                  <Text style={styles.promptText}>{truncateText(originalPrompt || 'No prompt provided')}</Text>
+                  <View style={styles.promptStats}>
+                    <Text style={styles.statText}>
+                      {originalPrompt ? originalPrompt.split(' ').length : 0} words
+                    </Text>
+                    <Text style={styles.statText}>•</Text>
+                    <Text style={styles.statText}>
+                      {originalPrompt ? originalPrompt.length : 0} characters
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Top Suggestions */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>💡 Key Recommendations</Text>
+                {prompt_grade.suggestions && prompt_grade.suggestions.length > 0 ? (
+                  <View style={styles.suggestionsContainer}>
+                    {prompt_grade.suggestions.slice(0, 3).map((suggestion, index) => (
+                      <View key={index} style={styles.suggestionCard}>
+                        <View style={styles.suggestionHeader}>
+                          <View style={[
+                            styles.priorityDot, 
+                            { backgroundColor: getPriorityColor(suggestion.priority) }
+                          ]} />
+                          <Text style={styles.suggestionDimension}>
+                            {typeof suggestion.dimension === 'string' ? suggestion.dimension :
+                             String(suggestion.dimension || 'Unknown')}
+                          </Text>
+                          <Text style={styles.suggestionPriority}>
+                            {typeof suggestion.priority === 'string' ? suggestion.priority.toUpperCase() :
+                             String(suggestion.priority || 'UNKNOWN').toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={styles.suggestionMessage}>
+                          {typeof suggestion.message === 'string' ? suggestion.message : 
+                           typeof suggestion.message === 'object' ? JSON.stringify(suggestion.message) :
+                           String(suggestion.message || 'No message available')}
+                        </Text>
+                        <Text style={styles.suggestionImpact}>
+                          Impact: {typeof suggestion.impact === 'string' ? suggestion.impact :
+                                   typeof suggestion.impact === 'object' ? JSON.stringify(suggestion.impact) :
+                                   String(suggestion.impact || 'Not specified')}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.noDataCard}>
+                    <Text style={styles.noDataText}>No suggestions available - your prompt looks great!</Text>
+                  </View>
+                )}
+              </View>
+              
+              {/* Footer */}
+              <View style={styles.reportFooter}>
+                <Text style={styles.footerText}>Generated by ZeroToken.io • Prompt Analysis Platform</Text>
+                <Text style={styles.footerSubtext}>Visit zerotok.io for advanced prompt engineering tools</Text>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
