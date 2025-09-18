@@ -75,13 +75,17 @@ fi
 echo -e "${YELLOW}🔐 Encoding WASM to base64${NC}"
 WASM_BASE64=$(base64 -i "$BUILD_DIR/main.wasm")
 
+# Create chunked base64 for better JavaScript parsing (avoid extremely long lines)
+echo -e "${YELLOW}🔧 Chunking base64 for JavaScript compatibility${NC}"
+WASM_BASE64_CHUNKED=$(echo "$WASM_BASE64" | fold -w 4000 | sed -e 's/^/"/g' -e 's/$/",/g' | sed '$ s/,$//' | sed '1s/^/\[/' | sed '$s/$/\].join("")/')
+
 # Create the WASM data file
 cat > "$JS_DIR/wasmData.js" << EOF
 // Auto-generated WASM data - DO NOT EDIT MANUALLY
 // Generated on: $(date)
 // WASM size: $WASM_SIZE
 
-export const wasmBase64 = \`$WASM_BASE64\`;
+export const wasmBase64 = $WASM_BASE64_CHUNKED;
 
 export const wasmInfo = {
   size: '$WASM_SIZE',
@@ -98,7 +102,7 @@ cat > "$JS_DIR/wasmData.cjs" << EOF
 // Generated on: $(date)
 // WASM size: $WASM_SIZE
 
-const wasmBase64 = \`$WASM_BASE64\`;
+const wasmBase64 = $WASM_BASE64_CHUNKED;
 
 const wasmInfo = {
   size: '$WASM_SIZE',
@@ -116,6 +120,7 @@ EOF
 
 # Create mobile HTML bundle (for React Native WebView) with inlined runtime and WASM
 WASM_EXEC_BASE64=$(base64 -i "$JS_DIR/wasm_exec.js")
+
 cat > "$JS_DIR/mobileHtml.js" << EOF
 // Auto-generated mobile HTML payload for React Native WebView - DO NOT EDIT
 // Generated on: $(date)
@@ -133,7 +138,7 @@ export const mobileHtml = \`<!doctype html>
   })();
 </script>
 <script>
-  const wasmBase64 = \`${WASM_BASE64}\`;
+  const wasmBase64 = ${WASM_BASE64_CHUNKED};
   function b64ToBytes(b64) {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { WasmBridge } from './WasmBridge.native.js';
-import { setBridge } from './bridgeRegistry.native.js';
+import { setBridge } from './bridgeRegistry.ultra.js';
 
 export function WasmProvider() {
   const ref = useRef(null);

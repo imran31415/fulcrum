@@ -197,26 +197,6 @@ export default function App() {
       await new Promise(resolve => requestAnimationFrame(() => resolve()));
       
       const out = await processText(op, input);
-      console.log('Raw WASM output:', out);
-      // Store for debugging
-      window.lastWasmOutput = out;
-      
-      // Better debug logging for TaskGraph
-      if (out?.success && out?.data) {
-        try {
-          const parsed = JSON.parse(out.data);
-          console.log('TaskGraph found:', parsed.task_graph ? 'YES' : 'NO');
-          if (parsed.task_graph) {
-            console.log('TaskGraph details:', {
-              totalTasks: parsed.task_graph.total_tasks,
-              tasks: parsed.task_graph.tasks?.length || 0,
-              relationships: parsed.task_graph.relationships?.length || 0
-            });
-          }
-        } catch (e) {
-          console.error('Error parsing data for TaskGraph check:', e);
-        }
-      }
       
       if (typeof out === 'object' && out !== null) {
         // Handle WASM response structure: { success: true/false, data: string/object, error?: string }
@@ -236,8 +216,6 @@ export default function App() {
               const parsed = JSON.parse(data);
               setResult(data);
               setParsedResult(parsed);
-              // Expose for debugging
-              window.parsedResult = parsed;
               
               // Generate analysis summary for analyze operations
               if (op === 'analyze' && parsed) {

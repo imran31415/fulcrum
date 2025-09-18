@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 import * as htmlToImage from 'html-to-image';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const isMobile = screenWidth < 768;
+const isSmallMobile = screenWidth < 400;
 
 // Helper function to get grade color
 const getGradeColor = (grade) => {
@@ -193,6 +195,8 @@ const PromptReportCard = ({ visible, analysisData, originalPrompt, onClose }) =>
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        bounces={true}
       >
         {/* Report Content */}
         <View ref={reportRef} style={styles.reportContainer}>
@@ -689,13 +693,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: isMobile ? 8 : 20,
   },
   container: {
     flex: 1,
     backgroundColor: '#f7f9fc',
-    margin: 20,
-    borderRadius: 12,
-    maxHeight: '90%',
+    borderRadius: isMobile ? 8 : 12,
+    maxHeight: isMobile ? '95%' : '90%',
+    width: '100%',
+    maxWidth: isMobile ? '100%' : 1200,
   },
   errorContainer: {
     backgroundColor: '#ffffff',
@@ -720,18 +726,20 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: isMobile ? 16 : 18,
     fontWeight: '700',
     color: '#1e293b',
+    flex: 1,
   },
   headerButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: isMobile ? 8 : 12,
+    flexShrink: 0,
   },
   generateButton: {
     backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: isMobile ? 12 : 16,
+    paddingVertical: isMobile ? 6 : 8,
     borderRadius: 8,
     shadowColor: '#2563eb',
     shadowOpacity: 0.2,
@@ -745,7 +753,7 @@ const styles = StyleSheet.create({
   },
   generateButtonText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: isMobile ? 12 : 14,
     fontWeight: '600',
   },
   closeButton: {
@@ -763,9 +771,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    width: '100%',
   },
   scrollContent: {
-    padding: 16,
+    padding: isMobile ? 8 : 16,
   },
   errorText: {
     fontSize: 16,
@@ -777,36 +786,35 @@ const styles = StyleSheet.create({
   // Report Styles
   reportContainer: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: isMobile ? 8 : 16,
+    padding: isMobile ? 16 : 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
-    maxWidth: 800,
-    alignSelf: 'center',
+    maxWidth: isMobile ? '100%' : 800,
     width: '100%',
   },
   welcomeHeader: {
     backgroundColor: '#f0f9ff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: isMobile ? 8 : 12,
+    padding: isMobile ? 16 : 20,
+    marginBottom: isMobile ? 16 : 24,
     borderLeftWidth: 4,
     borderLeftColor: '#0ea5e9',
   },
   welcomeTitle: {
-    fontSize: 18,
+    fontSize: isMobile ? 16 : 18,
     fontWeight: '700',
     color: '#0c4a6e',
     marginBottom: 8,
     textAlign: 'center',
   },
   welcomeSubtitle: {
-    fontSize: 14,
+    fontSize: isMobile ? 12 : 14,
     color: '#075985',
-    lineHeight: 20,
+    lineHeight: isMobile ? 18 : 20,
     textAlign: 'center',
   },
   reportHeader: {
@@ -844,13 +852,13 @@ const styles = StyleSheet.create({
 
   // Section Styles
   section: {
-    marginBottom: 32,
+    marginBottom: isMobile ? 24 : 32,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: isMobile ? 16 : 18,
     fontWeight: '700',
     color: '#1e293b',
-    marginBottom: 16,
+    marginBottom: isMobile ? 12 : 16,
     paddingLeft: 4,
   },
 
@@ -933,11 +941,11 @@ const styles = StyleSheet.create({
   dimensionCard: {
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    padding: 12,
+    padding: isMobile ? 8 : 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    minWidth: screenWidth > 400 ? '30%' : '100%',
-    flex: screenWidth <= 400 ? 1 : 0,
+    minWidth: isSmallMobile ? '100%' : isMobile ? '48%' : '30%',
+    flex: isSmallMobile ? 1 : 0,
   },
   dimensionName: {
     fontSize: 12,
@@ -1022,43 +1030,50 @@ const styles = StyleSheet.create({
   // Task Stats
   taskStatsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: isMobile ? 6 : 12,
+    flexWrap: 'wrap',
+    justifyContent: isMobile ? 'space-between' : 'flex-start',
   },
   taskStatCard: {
-    flex: 1,
+    flex: isMobile ? 0 : 1,
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    padding: 12,
+    padding: isMobile ? 6 : 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     alignItems: 'center',
+    width: isMobile ? Math.floor((screenWidth - 60) / 3) : 'auto',
+    minWidth: isMobile ? Math.floor((screenWidth - 60) / 3) : 0,
   },
   taskStatNumber: {
-    fontSize: 20,
+    fontSize: isMobile ? 16 : 20,
     fontWeight: '700',
     color: '#2563eb',
     marginBottom: 4,
   },
   taskStatLabel: {
-    fontSize: 11,
+    fontSize: isMobile ? 9 : 11,
     color: '#64748b',
     textAlign: 'center',
     fontWeight: '500',
+    lineHeight: isMobile ? 12 : 14,
   },
 
   // Performance
   performanceGrid: {
-    flexDirection: 'row',
-    gap: 12,
+    flexDirection: isMobile ? 'column' : 'row',
+    gap: isMobile ? 8 : 12,
+    flexWrap: 'wrap',
   },
   performanceCard: {
-    flex: 1,
+    flex: isMobile ? 0 : 1,
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    padding: 12,
+    padding: isMobile ? 8 : 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     alignItems: 'center',
+    minWidth: isMobile ? screenWidth / 2 - 20 : 0,
   },
   performanceLabel: {
     fontSize: 11,
@@ -1091,16 +1106,18 @@ const styles = StyleSheet.create({
   taskTypeBreakdown: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: isMobile ? 8 : 12,
+    justifyContent: isMobile ? 'space-between' : 'flex-start',
   },
   taskTypeCard: {
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    padding: 12,
+    padding: isMobile ? 8 : 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     alignItems: 'center',
-    minWidth: 80,
+    minWidth: isMobile ? Math.floor((screenWidth - 80) / 4) : 80,
+    width: isMobile ? Math.floor((screenWidth - 80) / 4) : 'auto',
   },
   taskTypeIcon: {
     width: 32,
@@ -1114,16 +1131,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   taskTypeCount: {
-    fontSize: 18,
+    fontSize: isMobile ? 14 : 18,
     fontWeight: '700',
     color: '#1e293b',
     marginBottom: 2,
   },
   taskTypeLabel: {
-    fontSize: 11,
+    fontSize: isMobile ? 9 : 11,
     color: '#64748b',
     textAlign: 'center',
     fontWeight: '500',
+    lineHeight: isMobile ? 12 : 14,
   },
   
   // Priority Distribution
@@ -1238,19 +1256,19 @@ const styles = StyleSheet.create({
   
   // Complexity Metrics
   complexityGrid: {
-    flexDirection: 'row',
+    flexDirection: isMobile ? 'column' : 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: isMobile ? 8 : 12,
   },
   complexityCard: {
-    flex: 1,
+    flex: isMobile ? 0 : 1,
     backgroundColor: '#ffffff',
     borderRadius: 8,
-    padding: 12,
+    padding: isMobile ? 8 : 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     alignItems: 'center',
-    minWidth: 100,
+    minWidth: isMobile ? screenWidth / 2 - 20 : 100,
   },
   complexityValue: {
     fontSize: 18,

@@ -1,4 +1,4 @@
-import { waitForReady, getBridge } from './bridgeRegistry.native';
+import { waitForReady, getBridge, enableBridgeDebugLogging } from './bridgeRegistry.ultra';
 
 export async function initWasm() {
   await waitForReady();
@@ -11,4 +11,9 @@ export async function processText(operation, text) {
     throw new Error('WASM bridge not available');
   }
   return bridge.call(operation, text);
+}
+
+// Enable debug logging for troubleshooting
+export function enableWasmDebugLogging() {
+  enableBridgeDebugLogging();
 }
