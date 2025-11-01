@@ -1,4 +1,6 @@
 # Fulcrum Text Analysis Service
+**🎯 [Live Demo](https://fulcrum.scalebase.io)**
+
 
 ## 🚀 Architecture Overview
 
@@ -11,7 +13,7 @@ Fulcrum is a **truly backendless** text analysis service built with a modern, in
 
 This unique architecture enables **zero-infrastructure deployment** while maintaining the performance of native Go code. Perfect for privacy-sensitive text analysis where data never leaves the client.
 
-**🎯 [Live Demo](https://fulcrum.scalebase.io)**
+
 
 ---
 
