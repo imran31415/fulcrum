@@ -222,16 +222,6 @@ export default function App() {
               if (op === 'analyze' && parsed) {
                 const summary = generateAnalysisSummary(parsed);
                 setAnalysisSummary(summary);
-                
-                // Auto-open report card if we have prompt grade data
-                if (parsed.prompt_grade) {
-                  // Use a longer delay for mobile devices to ensure everything has rendered
-                  const delay = Platform.OS === 'web' ? 1500 : 2000;
-                  setTimeout(() => {
-                    console.log('Auto-opening report card...');
-                    setShowReportCard(true);
-                  }, delay);
-                }
               }
             } catch {
               // Not JSON, treat as plain text
