@@ -151,11 +151,10 @@ BLUE := \033[0;34m
 NC := \033[0m # No Color
 
 ## Docker & Kubernetes Deployment
-docker-build: ## Build multi-architecture Docker image
+docker-build: ## Build Docker image for local platform
 	@echo "$(GREEN)Building Docker image...$(NC)"
 	@echo "Tags: $(TAG_LATEST), $(TAG_GIT), $(TAG_TIMESTAMP)"
-	docker buildx build \
-		--platform linux/amd64,linux/arm64 \
+	docker build \
 		-t $(IMAGE_NAME):$(TAG_LATEST) \
 		-t $(IMAGE_NAME):$(TAG_GIT) \
 		-t $(IMAGE_NAME):$(TAG_TIMESTAMP) \

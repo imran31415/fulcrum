@@ -12,14 +12,11 @@ resources:
 - hpa.yaml
 
 labels:
-- includeSelectors: true
-  pairs:
+- pairs:
     app: fulcrum
     version: v1.0.0
     managed-by: kustomize
-
-commonLabels:
-  app.kubernetes.io/name: fulcrum
-  app.kubernetes.io/instance: production
-  app.kubernetes.io/component: web
-  app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: fulcrum
+    app.kubernetes.io/instance: production
+    app.kubernetes.io/component: web
+    app.kubernetes.io/managed-by: kustomize

@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 6,
-    backgroundColor: '#333',
+    backgroundColor: '#e2e8f0',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -508,19 +508,19 @@ const styles = StyleSheet.create({
   },
   dimensionDescription: {
     fontSize: 12,
-    color: '#999',
+    color: '#64748b',
     lineHeight: 18,
   },
   factorsContainer: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#333',
+    borderTopColor: '#e5e7eb',
   },
   factorsTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#ccc',
+    color: '#475569',
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -535,15 +535,15 @@ const styles = StyleSheet.create({
   },
   factorName: {
     fontSize: 12,
-    color: '#ccc',
+    color: '#374151',
   },
   factorWeight: {
     fontSize: 11,
-    color: '#666',
+    color: '#64748b',
   },
   factorBar: {
     height: 4,
-    backgroundColor: '#333',
+    backgroundColor: '#e2e8f0',
     borderRadius: 2,
     overflow: 'hidden',
     marginBottom: 2,
@@ -554,18 +554,20 @@ const styles = StyleSheet.create({
   },
   factorValue: {
     fontSize: 10,
-    color: '#999',
+    color: '#64748b',
   },
   suggestionsContainer: {
     padding: 16,
     gap: 12,
   },
   suggestionCard: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   suggestionHeader: {
     flexDirection: 'row',
@@ -586,28 +588,28 @@ const styles = StyleSheet.create({
   },
   suggestionDimension: {
     fontSize: 12,
-    color: '#999',
+    color: '#64748b',
   },
   suggestionMessage: {
     fontSize: 14,
-    color: '#fff',
+    color: '#1e293b',
     fontWeight: '500',
     marginBottom: 6,
   },
   suggestionImpact: {
     fontSize: 12,
-    color: '#999',
+    color: '#64748b',
     marginBottom: 8,
   },
   exampleContainer: {
-    backgroundColor: '#0a0a0f',
+    backgroundColor: '#f8fafc',
     padding: 10,
     borderRadius: 8,
     marginTop: 8,
   },
   exampleLabel: {
     fontSize: 10,
-    color: '#646cff',
+    color: '#2563eb',
     fontWeight: '600',
     marginBottom: 4,
     textTransform: 'uppercase',
@@ -615,7 +617,7 @@ const styles = StyleSheet.create({
   },
   exampleText: {
     fontSize: 11,
-    color: '#ccc',
+    color: '#475569',
     lineHeight: 16,
   },
   strengthsWeaknessesContainer: {
@@ -631,12 +633,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   listBullet: {
-    color: '#646cff',
+    color: '#2563eb',
     marginRight: 8,
   },
   listText: {
     fontSize: 12,
-    color: '#ccc',
+    color: '#374151',
     flex: 1,
   },
 });
