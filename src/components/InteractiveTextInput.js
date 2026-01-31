@@ -35,7 +35,8 @@ const InteractiveTextInput = ({
   const [showSuggestionsTooltip, setShowSuggestionsTooltip] = useState(false);
   const [suggestionsTooltipAnim] = useState(new Animated.Value(0));
   const [suggestionMarkers, setSuggestionMarkers] = useState([]);
-  
+  const [inputContentHeight, setInputContentHeight] = useState(isNarrowScreen ? 200 : 320);
+
   const inputRef = useRef(null);
   const scrollViewRef = useRef(null);
   const pulseAnimations = useRef({}).current;
@@ -409,9 +410,15 @@ const InteractiveTextInput = ({
       </View>
 
       {/* Main Input with Line Numbers */}
-      <View style={styles.inputContainer}>
-        {/* Line Numbers Column */}
-        <View style={styles.lineNumbersColumn}>
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.inputScrollContainer}
+        showsVerticalScrollIndicator={true}
+        showsHorizontalScrollIndicator={false}
+      >
+        <View style={styles.inputContainer}>
+          {/* Line Numbers Column */}
+          <View style={styles.lineNumbersColumn}>
           {showSuggestions && value && Array.from({ length: value.split('\n').length }, (_, index) => {
             const lineNumber = index + 1;
             const lineMarkers = suggestionMarkers.filter(marker => {
@@ -455,21 +462,31 @@ const InteractiveTextInput = ({
           })}
         </View>
         
-        {/* Text Input */}
-        <TextInput
-          ref={inputRef}
-          style={[styles.mainTextInput, isNarrowScreen && styles.mainTextInputMobile, style]}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor="#9ca3af"
-          multiline
-          textAlignVertical="top"
-          onSelectionChange={(event) => {
-            setCursorPosition(event.nativeEvent.selection);
-          }}
-        />
-      </View>
+          {/* Text Input */}
+          <TextInput
+            ref={inputRef}
+            style={[
+              styles.mainTextInput,
+              isNarrowScreen && styles.mainTextInputMobile,
+              { minHeight: Math.max(isNarrowScreen ? 200 : 320, inputContentHeight) },
+              style,
+            ]}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor="#9ca3af"
+            multiline
+            scrollEnabled={false}
+            textAlignVertical="top"
+            onSelectionChange={(event) => {
+              setCursorPosition(event.nativeEvent.selection);
+            }}
+            onContentSizeChange={(event) => {
+              setInputContentHeight(event.nativeEvent.contentSize.height);
+            }}
+          />
+        </View>
+      </ScrollView>
 
       {/* Status Bar */}
       <View style={styles.statusBar}>
@@ -481,7 +498,7 @@ const InteractiveTextInput = ({
         </Text>
       </View>
 
-      {/* Suggestion Tooltip */}
+      {/* Suggestion Tooltip - Bottom Sheet */}
       {activeTooltip && (
         <TouchableOpacity
           style={styles.tooltipOverlay}
@@ -494,25 +511,27 @@ const InteractiveTextInput = ({
               {
                 opacity: tooltipAnimation,
                 transform: [{
-                  scale: tooltipAnimation.interpolate({
+                  translateY: tooltipAnimation.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0.95, 1]
+                    outputRange: [300, 0]
                   })
                 }]
               }
             ]}
           >
+            <View style={styles.sheetHandle} />
+
             <View style={styles.tooltipHeader}>
               <View style={styles.tooltipPriority}>
                 <View style={[
-                  styles.priorityDot, 
+                  styles.priorityDot,
                   { backgroundColor: getPriorityColor(activeTooltip.priority) }
                 ]} />
                 <Text style={styles.priorityText}>
                   {activeTooltip.priority.charAt(0).toUpperCase() + activeTooltip.priority.slice(1)} Priority
                 </Text>
               </View>
-              
+
               <TouchableOpacity onPress={closeTooltip} style={styles.closeButton}>
                 <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
@@ -521,7 +540,7 @@ const InteractiveTextInput = ({
             <Text style={styles.tooltipTitle}>
               {activeTooltip.suggestion.dimension}
             </Text>
-            
+
             <Text style={styles.tooltipMessage}>
               {activeTooltip.suggestion.message}
             </Text>
@@ -553,7 +572,7 @@ const InteractiveTextInput = ({
         </TouchableOpacity>
       )}
 
-      {/* Suggestions Info Tooltip */}
+      {/* Suggestions Info Tooltip - Bottom Sheet */}
       {showSuggestionsTooltip && (
         <TouchableOpacity
           style={styles.tooltipOverlay}
@@ -566,14 +585,15 @@ const InteractiveTextInput = ({
               {
                 opacity: suggestionsTooltipAnim,
                 transform: [{
-                  scale: suggestionsTooltipAnim.interpolate({
+                  translateY: suggestionsTooltipAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0.95, 1]
+                    outputRange: [300, 0]
                   })
                 }]
               }
             ]}
           >
+            <View style={styles.sheetHandle} />
             <View style={styles.suggestionsTooltipHeader}>
               <Text style={styles.suggestionsTooltipTitle}>💡 How to Use Suggestions</Text>
               <TouchableOpacity onPress={closeSuggestionsTooltip} style={styles.closeButton}>
@@ -704,9 +724,11 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontWeight: '500',
   },
+  inputScrollContainer: {
+    flex: 1,
+  },
   inputContainer: {
     flexDirection: 'row',
-    flex: 1,
   },
   lineNumbersColumn: {
     width: 40,
@@ -756,8 +778,7 @@ const styles = StyleSheet.create({
   mainTextInput: {
     flex: 1,
     padding: 24,
-    paddingLeft: 12, // Reduced since line numbers provide the left spacing
-    minHeight: 320, // Increased to better fill the 400px container
+    paddingLeft: 12,
     fontSize: 15,
     lineHeight: 22,
     color: '#111827',
@@ -769,20 +790,16 @@ const styles = StyleSheet.create({
     }),
     width: '100%',
     maxWidth: '100%',
-    // Remove overflow hidden to allow scrolling on web
     ...(Platform.OS === 'web' ? {
-      overflow: 'auto',
-      resize: 'none',
-    } : {
       overflow: 'hidden',
-    }),
+      resize: 'none',
+    } : {}),
     wordWrap: 'break-word',
     whiteSpace: 'pre-wrap',
   },
   mainTextInputMobile: {
     padding: 16,
     paddingLeft: 8,
-    minHeight: 200,
     fontSize: 16,
     lineHeight: 24,
   },
@@ -808,21 +825,30 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingHorizontal: 20,
   },
   tooltip: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 20,
-    maxWidth: screenWidth * 0.9,
-    minWidth: 300,
+    paddingTop: 12,
+    width: '100%',
+    maxWidth: 600,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
     elevation: 8,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#d1d5db',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
   },
   tooltipHeader: {
     flexDirection: 'row',
@@ -942,12 +968,14 @@ const styles = StyleSheet.create({
   // Suggestions info tooltip styles
   suggestionsTooltip: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 24,
-    maxWidth: screenWidth * 0.9,
-    minWidth: 320,
+    paddingTop: 12,
+    width: '100%',
+    maxWidth: 600,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
     elevation: 8,
